@@ -1,0 +1,20 @@
+{
+  "language": "en",
+  "maxTabs": 20,
+  "sqlHistoryLimit": 100,
+  "outputDateFormat": "YYYY-MM-DD HH:mm:ss",
+  "inputDateFormat": "YYYY-MM-DD",
+  "numberFormat": "comma",
+  "timezone": "+00:00",
+  "theme": "mona",
+  "erNotation": "ie",
+  "queryTimeout": 0,
+  "aiSendKey": "enter",
+  "oracleClientPath": "",
+  "aiResponseMaxMb": 16,
+  "aiIdleTimeoutSeconds": 120,
+  "aiRequestTimeoutSeconds": 600,
+  "sqlFileMaxMb": 16,
+  "erFileMaxMb": 16,
+  "sqlHistoryEnabled": true
+}

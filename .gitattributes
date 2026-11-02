@@ -1,0 +1,8 @@
+# Copyright 2026 eiji ikemura
+# SPDX-License-Identifier: Apache-2.0
+
+# Keep source and workflow checkouts consistent across operating systems.
+* text=auto eol=lf
+
+# Preserve binary artwork and screenshots byte for byte.
+*.png binary

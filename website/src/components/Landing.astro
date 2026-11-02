@@ -1,0 +1,73 @@
+---
+// Copyright 2026 eiji ikemura
+// SPDX-License-Identifier: Apache-2.0
+import DbBadges from './DbBadges.astro';
+import Screenshot from './Screenshot.astro';
+import { siteContent } from '../content/site';
+import { translator, type Locale } from '../i18n';
+import { SITE, sitePath } from '../config';
+interface Props { locale: Locale; }
+const { locale } = Astro.props;
+const { ui, pages, groups } = siteContent(translator(locale));
+const features = [
+  { number: '01', slug: 'git', title: ui.git_feature_title, body: ui.git_feature_body, image: 'git-source-history' },
+  { number: '02', slug: 'ai', title: ui.ai_feature_title, body: ui.ai_feature_body, image: 'ai-coding-assistant' },
+  { number: '03', slug: 'trace', title: ui.trace_feature_title, body: ui.trace_feature_body, image: 'trace-debugging' },
+];
+const assistants = [
+  { slug: 'stored-programs', title: ui.ai_coding_title, body: ui.ai_coding_body },
+  { slug: 'trace', title: ui.ai_debug_title, body: ui.ai_debug_body },
+  { slug: 'sql', title: ui.ai_sql_title, body: ui.ai_sql_body },
+  { slug: 'sql', title: ui.ai_tuning_title, body: ui.ai_tuning_body },
+  { slug: 'data-generator', title: ui.ai_data_title, body: ui.ai_data_body },
+];
+const protections = [
+  { title: ui.transaction_title, body: ui.transaction_body },
+  { title: ui.readonly_title, body: ui.readonly_body },
+  { title: ui.review_title, body: ui.review_body },
+];
+---
+<div class="landing">
+  <section class="landing-hero" aria-labelledby="_top">
+    <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span>{ui.eyebrow}</p>
+    <h1 id="_top">{ui.hero_title.split('\n').map((line, index) => <span class:list={{ accent: index === 1 }}>{line}</span>)}</h1>
+    <p class="hero-intro">{ui.hero_intro}</p>
+    <div class="hero-actions"><a class="button primary" href={sitePath(locale, 'guides/getting-started')}>{ui.read_manual}<span aria-hidden="true">↗</span></a><a class="button secondary" href={`${SITE.repository}/releases`}>{ui.view_downloads}<span aria-hidden="true">↓</span></a></div>
+    <div class="hero-meta"><DbBadges databases={['oracle', 'postgresql']} label={ui.db_support} /><span>{ui.platforms}</span><span>{ui.open_source}</span></div>
+    <Screenshot locale={locale} name="sql-workspace" alt={ui.hero_caption} caption={ui.hero_caption} priority />
+  </section>
+  <section class="feature-section" aria-labelledby="features-title">
+    <p class="eyebrow">{ui.features_eyebrow}</p>
+    <h2 id="features-title">{ui.features_title}</h2>
+    <div class="feature-grid">{features.map(feature => <article class="feature-card"><span class="feature-number">{feature.number}</span><h3>{feature.title}</h3><p>{feature.body}</p><a href={sitePath(locale, `guides/${feature.slug}`)}>{ui.learn_more}<span aria-hidden="true"> →</span></a></article>)}</div>
+    <div class="feature-showcase"><div><p class="eyebrow">{ui.git_label}</p><h3>{ui.git_feature_title}</h3><p>{ui.git_feature_body}</p><a href={sitePath(locale, 'guides/git')}>{ui.learn_more} <span aria-hidden="true">→</span></a></div><Screenshot locale={locale} name="git-source-history" alt={ui.git_feature_title} /></div>
+    <div class="feature-showcase reverse"><div><p class="eyebrow">{ui.ai_label}</p><h3>{ui.ai_feature_title}</h3><p>{ui.ai_feature_body}</p><a href={sitePath(locale, 'guides/ai')}>{ui.learn_more} <span aria-hidden="true">→</span></a></div><Screenshot locale={locale} name="ai-coding-assistant" alt={ui.ai_feature_title} /></div>
+  </section>
+  <section class="ai-workflows" aria-labelledby="ai-workflows-title">
+    <p class="eyebrow">{ui.ai_label}</p><h2 id="ai-workflows-title">{ui.ai_workflows_title}</h2><p class="section-intro">{ui.ai_workflows_intro}</p>
+    <div class="assistant-grid">{assistants.map((assistant, index) => <article class="feature-card"><span class="feature-number">{String(index + 1).padStart(2, '0')}</span><h3>{assistant.title}</h3><p>{assistant.body}</p><a href={sitePath(locale, `guides/${assistant.slug}`)}>{ui.learn_more}<span aria-hidden="true"> →</span></a></article>)}</div>
+    <div class="ai-boundaries"><article><h3>{ui.ai_boundary_title}</h3><p>{ui.ai_boundary_body}</p></article><article><h3>{ui.ai_provider_title}</h3><p>{ui.ai_provider_body}</p></article></div>
+  </section>
+  <section class="evidence-section" aria-labelledby="trace-title">
+    <div class="feature-showcase"><div><p class="eyebrow">{ui.trace_label}</p><h2 id="trace-title">{ui.trace_feature_title}</h2><p>{ui.trace_session_body}</p><h3 class="detail-heading">{ui.trace_ai_title}</h3><p>{ui.trace_ai_body}</p><a href={sitePath(locale, 'guides/trace')}>{ui.learn_more} <span aria-hidden="true">→</span></a></div><Screenshot locale={locale} name="trace-debugging" alt={ui.trace_feature_title} /></div>
+    <div class="feature-showcase reverse"><div><p class="eyebrow">{ui.er_label}</p><h2>{ui.er_feature_title}</h2><p>{ui.er_feature_body}</p><a href={sitePath(locale, 'guides/er-diagrams')}>{ui.learn_more} <span aria-hidden="true">→</span></a></div><Screenshot locale={locale} name="er-diagram" alt={ui.er_feature_title} /></div>
+  </section>
+  <section class="safety-section" aria-labelledby="safety-title">
+    <p class="eyebrow">{ui.safety_label}</p><h2 id="safety-title">{ui.safety_title}</h2><p class="section-intro">{ui.safety_intro}</p>
+    <div class="feature-grid">{protections.map(protection => <article class="feature-card"><h3>{protection.title}</h3><p>{protection.body}</p></article>)}</div>
+    <a class="safety-link" href={sitePath(locale, 'guides/connection')}>{ui.learn_more} <span aria-hidden="true">→</span></a>
+  </section>
+  <aside class="style-note" aria-labelledby="styles-title">
+    <div><h2 id="styles-title">{ui.styles_title}</h2><p>{ui.styles_body}</p><a href={sitePath(locale, 'guides/styles')}>{ui.styles_link} <span aria-hidden="true">→</span></a></div>
+    <ul class="style-options"><li><span class="style-swatch mona" aria-hidden="true"></span>{ui.style_mona}</li><li><span class="style-swatch simple" aria-hidden="true"></span>{ui.style_simple}</li><li><span class="style-swatch dark" aria-hidden="true"></span>{ui.style_dark}</li></ul>
+  </aside>
+  <section id="screens" class="screen-section" aria-labelledby="screens-title">
+    <p class="eyebrow">{ui.screens_eyebrow}</p><h2 id="screens-title">{ui.screens_title}</h2><p class="section-intro">{ui.screens_intro}</p>
+    {groups.map(group => <div class="screen-group"><h3>{group.label}</h3><div class="screen-grid">{(group.slug === 'start'
+      ? [...pages.filter(page => page.group === 'start' && !['styles','settings','contact','privacy-policy'].includes(page.slug)),
+         ...['styles','settings','contact','privacy-policy'].flatMap(slug => pages.filter(page => page.slug === slug))]
+      : pages.filter(page => page.group === group.slug)).map(page => <article class="screen-card"><DbBadges databases={page.databases} label={ui.db_support} /><h4><a href={sitePath(locale, `guides/${page.slug}`)}>{page.title}<span aria-hidden="true">↗</span></a></h4><p>{page.summary}</p></article>)}</div></div>)}
+  </section>
+  <section class="closing" aria-labelledby="closing-title"><p class="eyebrow">MONABASE</p><h2 id="closing-title">{ui.footer_title}</h2><p>{ui.footer_intro}</p><div class="hero-actions"><a class="button primary" href={sitePath(locale, 'guides/connection')}>{ui.read_manual} <span aria-hidden="true">→</span></a><a class="button secondary" href={SITE.repository}>{ui.view_source}</a></div><p class="download-note">{ui.download_note}</p></section>
+  <footer class="landing-footer"><span>MonaBase</span><p>{ui.footer_credit}</p><a href={sitePath(locale, "guides/privacy-policy")}>{ui.privacy_link}</a><a href={sitePath(locale, "guides/contact")}>{ui.contact_link}</a><a href={`${SITE.repository}/blob/main/LICENSE`}>Apache 2.0 ↗</a></footer>
+</div>

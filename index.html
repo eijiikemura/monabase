@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<!-- Copyright 2026 eiji ikemura
+     SPDX-License-Identifier: Apache-2.0 -->
+
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MonaBase</title>
+<!-- ▼ Styles for the initial loading screen -->
+    <style>
+      /* Default light mode: white background and brown text. */
+      #initial-loader {
+        position: fixed;
+        top: 0; left: 0; width: 100vw; height: 100vh;
+        display: flex; flex-direction: column;
+        justify-content: center; align-items: center;
+        background-color: #fafafa;
+        z-index: 9999;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      }
+      .spinner {
+        width: 45px; height: 45px;
+        border: 4px solid #D7CCC8; /* Light brown. */
+        border-top: 4px solid #6D4C41; /* Dark brown. */
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 16px;
+      }
+      .loading-text {
+        color: #6D4C41;
+        font-weight: bold;
+        letter-spacing: 2px;
+        font-size: 1.1rem;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      /* Styles for system dark mode. */
+      @media (prefers-color-scheme: dark) {
+        #initial-loader { background-color: #121212; }
+        .spinner { border: 4px solid #4E342E; border-top: 4px solid #BCAAA4; }
+        .loading-text { color: #BCAAA4; }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- React renders the application inside this root element -->
+    <div id="root">
+      
+      <!-- ▼ Display this content until React loads -->
+      <div id="initial-loader">
+        <div class="spinner"></div>
+        <div class="loading-text">Loading MonaBase...</div>
+      </div>
+      
+    </div>
+    
+    <!-- Application entry point for Vite -->
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

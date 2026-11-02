@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.astro/
+.generated/
+# Derived from the content model and translation catalogs.
+/src/content/docs/
+
+/src/content/i18n/
+/public/favicon.png

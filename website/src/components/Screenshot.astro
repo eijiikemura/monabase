@@ -1,0 +1,16 @@
+---
+// Copyright 2026 eiji ikemura
+// SPDX-License-Identifier: Apache-2.0
+import { Image } from 'astro:assets';
+import type { Locale } from '../i18n/index';
+import { screenshots } from '../content/screenshots';
+interface Props { name: string; locale: Locale; alt: string; caption?: string; priority?: boolean; }
+const { name, locale, alt, caption, priority = false } = Astro.props;
+const source = screenshots[locale]?.[name];
+if (!source) throw new Error(`Unknown website screenshot: ${locale}/${name}`);
+---
+<figure class="product-figure" data-screenshot={name} data-screenshot-locale={locale}>
+  <div class="window-chrome" aria-hidden="true"><span></span><span></span><span></span><b>MonaBase</b></div>
+  <Image src={source} alt={alt} widths={[640, 1000, 1600]} sizes="(max-width: 50rem) 100vw, 1200px" format="webp" loading={priority ? 'eager' : 'lazy'} decoding="async" fetchpriority={priority ? 'high' : 'auto'} />
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>

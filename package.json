@@ -1,0 +1,150 @@
+{
+  "name": "monabase",
+  "productName": "MonaBase",
+  "private": true,
+  "author": {
+    "name": "eiji ikemura"
+  },
+  "version": "1.0.0",
+  "type": "commonjs",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"cross-env NODE_ENV=development wait-on http://localhost:5173 && electron .\"",
+    "build": "tsc -b && vite build && electron-builder",
+    "build:store": "npm run build:renderer && electron-builder --win msix --x64 --publish never",
+    "build:win": "tsc -b && vite build && electron-builder --win --x64 --config.npmRebuild=false --publish never",
+    "build:mac": "npm run build:renderer && electron-builder --mac --arm64 --publish never",
+    "lint": "eslint src electron tests scripts vite.config.ts i18next-parser.config.js",
+    "i18n:extract": "i18next",
+    "typecheck": "tsc -b",
+    "test": "node --test tests/*.test.cjs",
+    "test:git": "node --test tests/git-*.test.cjs tests/pg-routine-identity.test.cjs tests/workspace-paths.test.cjs",
+    "test:db": "node --test --test-concurrency=1 tests/integration/*.test.cjs",
+    "test:ui": "npm run build:renderer && node scripts/run-ui-tests.cjs",
+    "check": "npm run lint && npm run typecheck && npm test",
+    "build:renderer": "tsc -b && vite build",
+    "build:unpacked": "npm run build:renderer && electron-builder --dir --publish never",
+    "verify:package": "node scripts/verify-package.cjs",
+    "audit:security": "npm audit --audit-level=moderate",
+    "test:ai:live": "node tests/live-ai/runner.cjs",
+    "test:ai:effect": "node tests/live-ai/effect.cjs",
+    "test:ai:trace": "node tests/live-ai/trace-effect.cjs",
+    "test:ai:programs": "node tests/live-ai/program-effect.cjs"
+  },
+  "build": {
+    "appId": "dev.ikemura.monabase",
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "icon": "src/assets/icon.png",
+      "target": [{ "target": "dmg", "arch": ["arm64"] }],
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
+    },
+    "win": {
+      "icon": "src/assets/icon.png",
+      "target": ["nsis", "portable"],
+      "files": [
+        "dist/**/*",
+        "electron/**/*",
+        "src/locales/*.json",
+        "src/assets/icon.png",
+        "package.json",
+        "LICENSE",
+        "!node_modules/cpu-features/**/*",
+        "!node_modules/ssh2/lib/protocol/crypto/build/**/*"
+      ]
+    },
+    "nsis": {
+      "artifactName": "${productName}-${version}-win-${arch}-Setup.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-win-${arch}-Portable.${ext}"
+    },
+    "appx": {
+      "applicationId": "MonaBase",
+      "identityName": "EijiIkemura.MonaBase",
+      "publisher": "CN=BD235DDE-3495-4169-8486-0E9653BDBC89",
+      "publisherDisplayName": "Eiji Ikemura",
+      "displayName": "MonaBase",
+      "languages": ["en-US", "ja-JP"]
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "src/locales/*.json",
+      "src/assets/icon.png",
+      "package.json",
+      "LICENSE"
+    ],
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "onlyLoadAppFromAsar": true,
+      "enableEmbeddedAsarIntegrityValidation": true
+    }
+  },
+  "dependencies": {
+    "@codemirror/lang-sql": "^6.10.0",
+    "@codemirror/lint": "^6.9.7",
+    "@codemirror/view": "^6.43.8",
+    "@emotion/react": "^11.11.0",
+    "@emotion/styled": "^11.11.0",
+    "@mui/icons-material": "^5.15.0",
+    "@mui/material": "^5.15.0",
+    "@mui/x-data-grid": "^6.18.0",
+    "@mui/x-tree-view": "^6.17.0",
+    "@uiw/react-codemirror": "^4.25.11",
+    "html-to-image": "^1.11.13",
+    "i18next": "^26.4.1",
+    "iconv-lite": "^0.7.3",
+    "oracledb": "^6.10.0",
+    "pg": "^8.23.0",
+    "prismjs": "^1.30.0",
+    "randexp": "^0.5.3",
+    "react": "^18.2.0",
+    "react-diff-viewer-continued": "^4.4.0",
+    "react-dom": "^18.2.0",
+    "react-i18next": "^17.0.13",
+    "reactflow": "^11.11.4",
+    "recharts": "^3.10.1",
+    "simple-git": "^4.0.2",
+    "sql-formatter": "^15.8.2",
+    "ssh2": "^1.17.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "concurrently": "^10.0.6",
+    "cross-env": "^7.0.3",
+    "electron": "^44.9.2",
+    "electron-builder": "^26.18.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "i18next-parser": "^9.4.0",
+    "minimatch": "file:scripts/minimatch-compat",
+    "typescript": "^5.2.0",
+    "typescript-eslint": "^8.71.1",
+    "vite": "^8.3.5",
+    "wait-on": "^7.2.0"
+  },
+  "description": "A desktop database IDE for Oracle and PostgreSQL, with Git integration, ER diagrams, and trace-based debugging.",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "overrides": {
+    "joi": "17.13.9",
+    "minimatch": "$minimatch",
+    "glob@>=9.0.0": "14.0.3"
+  }
+}

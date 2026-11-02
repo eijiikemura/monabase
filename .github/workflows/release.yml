@@ -1,0 +1,156 @@
+# Copyright 2026 eiji ikemura
+# SPDX-License-Identifier: Apache-2.0
+
+name: Prepare release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag at the selected default-branch commit (e.g. v1.0.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prepare-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    if: ${{ !github.event.repository.fork && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: Check version and immutable build source
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
+          node -e 'if (process.env.RELEASE_TAG !== `v${require("./package.json").version}`) process.exit(1)'
+          test "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$GITHUB_SHA"
+      - run: npm ci
+      - run: npm run audit:security
+      - run: npm run check
+
+  build:
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            platform: win
+            arch: x64
+          - os: macos-15
+            platform: mac
+            arch: arm64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Build distribution files
+        shell: bash
+        env:
+          BUILD_PLATFORM: ${{ matrix.platform }}
+          BUILD_ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          npm run "build:$BUILD_PLATFORM" -- --"$BUILD_ARCH"
+      - run: npm run verify:package
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: distribution-${{ matrix.platform }}-${{ matrix.arch }}
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            release/*.exe
+            release/*.dmg
+
+  attest:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      # Only artifacts from this trusted workflow run are accepted. Never execute them here.
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: distribution-*
+          merge-multiple: true
+          path: assets
+      - name: Check complete distribution and create checksums
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          cd assets
+          version="${RELEASE_TAG#v}"
+          expected=("MonaBase-$version-win-x64-Setup.exe" "MonaBase-$version-win-x64-Portable.exe" "MonaBase-$version-mac-arm64.dmg")
+          test "$(find . -mindepth 1 -maxdepth 1 | wc -l)" -eq 3
+          for file in "${expected[@]}"; do test -s "$file" && test ! -L "$file"; done
+          sha256sum -- "${expected[@]}" > SHA256SUMS
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: assets/*
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: attested-release
+          if-no-files-found: error
+          retention-days: 7
+          path: assets/*
+
+  draft:
+    needs: attest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      attestations: read
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: attested-release
+          path: assets
+      - name: Verify provenance and prepare a draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GH_REPO/commits/refs/tags/$RELEASE_TAG" --jq .sha)" = "$GITHUB_SHA"
+          cd assets
+          for file in *; do
+            gh attestation verify "$file" --repo "$GH_REPO" --signer-workflow "$GH_REPO/.github/workflows/release.yml" --source-digest "$GITHUB_SHA" --deny-self-hosted-runners
+          done
+          sha256sum --check --strict SHA256SUMS
+          gh release create "$RELEASE_TAG" ./* --repo "$GH_REPO" --verify-tag --draft --title "MonaBase $RELEASE_TAG" --notes "Unsigned builds. Review the release checklist, test the downloads on each target OS, and edit these notes before publishing. Verify downloads with gh attestation verify FILE --repo $GH_REPO."

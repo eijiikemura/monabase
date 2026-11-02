@@ -1,0 +1,27 @@
+{
+  "name": "monabase-website",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run content:generate && astro dev --host 127.0.0.1",
+    "content:generate": "node scripts/generate-content.mjs",
+    "i18n:extract": "node scripts/extract-i18n.mjs",
+    "i18n:check": "node scripts/extract-i18n.mjs --check",
+    "check": "npm run i18n:check && npm run content:generate && astro check && node --test tests/*.test.mjs",
+    "build": "npm run content:generate && astro build && node scripts/verify-site.mjs",
+    "preview": "astro preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "0.42.7",
+    "astro": "7.4.4"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.12",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=22.23.4"
+  },
+  "license": "Apache-2.0"
+}

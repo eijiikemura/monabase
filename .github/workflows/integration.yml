@@ -1,0 +1,143 @@
+# Copyright 2026 eiji ikemura
+# SPDX-License-Identifier: Apache-2.0
+
+name: Integration tests
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16@sha256:1beaa3084eee2676f20a9cd9928f0bf2c5bf674f8e49f81017912183d377c61c
+        env:
+          POSTGRES_DB: monabase_test
+          POSTGRES_USER: monabase_test
+          POSTGRES_PASSWORD: ci_disposable_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U monabase_test -d monabase_test"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    env:
+      MONABASE_DB_TEST_ALLOW_WRITE: '1'
+      MONABASE_TEST_DATABASES: postgresql
+      MONABASE_PG_HOST: 127.0.0.1
+      MONABASE_PG_PORT: '5432'
+      MONABASE_PG_DATABASE: monabase_test
+      MONABASE_PG_USER: monabase_test
+      MONABASE_PG_PASSWORD: ci_disposable_only
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:db
+
+  oracle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      oracle:
+        image: gvenzl/oracle-free:23-slim-faststart@sha256:f5ff19033860d662c821cb04eb10483fa94f14f78eae252d054291ea07028093
+        env:
+          ORACLE_PASSWORD: ci_admin_disposable_only
+          APP_USER: monabase_test
+          APP_USER_PASSWORD: ci_disposable_only
+        ports:
+          - 1521:1521
+        options: >-
+          --health-cmd healthcheck.sh
+          --health-interval 10s --health-timeout 5s --health-retries 30
+    env:
+      MONABASE_DB_TEST_ALLOW_WRITE: '1'
+      MONABASE_TEST_DATABASES: oracle
+      MONABASE_ORACLE_HOST: 127.0.0.1
+      MONABASE_ORACLE_PORT: '1521'
+      MONABASE_ORACLE_DATABASE: FREEPDB1
+      MONABASE_ORACLE_USER: monabase_test
+      MONABASE_ORACLE_PASSWORD: ci_disposable_only
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Prepare object-management privileges in the disposable Oracle service
+        env:
+          ORACLE_CONTAINER_ID: ${{ job.services.oracle.id }}
+        run: |
+          set -euo pipefail
+          # Use local SYSDBA only inside this job's disposable Oracle service.
+          # SQL errors stop setup and report their Oracle code without credentials.
+          docker exec --interactive "$ORACLE_CONTAINER_ID" sqlplus -s '/ as sysdba' <<'SQL'
+          WHENEVER OSERROR EXIT FAILURE
+          WHENEVER SQLERROR EXIT FAILURE
+          SET ECHO OFF
+          ALTER SESSION SET CONTAINER = FREEPDB1;
+          GRANT CREATE DATABASE LINK, ALTER DATABASE LINK, CREATE ANY DIRECTORY, DROP ANY DIRECTORY TO MONABASE_TEST;
+          GRANT SELECT ON SYS.V_$SESSION TO MONABASE_TEST;
+          GRANT SELECT ON SYS.V_$LOCK TO MONABASE_TEST;
+          GRANT SELECT ON SYS.V_$SQLAREA TO MONABASE_TEST;
+          GRANT SELECT ON SYS.V_$SESSTAT TO MONABASE_TEST;
+          GRANT SELECT ON SYS.V_$STATNAME TO MONABASE_TEST;
+          GRANT SELECT ON SYS.V_$TABLESPACE TO MONABASE_TEST;
+          GRANT SELECT ON SYS.V_$DATAFILE TO MONABASE_TEST;
+          GRANT SELECT ON SYS.V_$TEMPFILE TO MONABASE_TEST;
+          GRANT SELECT ON SYS.V_$PARAMETER TO MONABASE_TEST;
+          GRANT SELECT ON SYS.DBA_TABLESPACES TO MONABASE_TEST;
+          GRANT SELECT ON SYS.DBA_DATA_FILES TO MONABASE_TEST;
+          GRANT SELECT ON SYS.DBA_TEMP_FILES TO MONABASE_TEST;
+          GRANT SELECT ON SYS.DBA_FREE_SPACE TO MONABASE_TEST;
+          GRANT SELECT ON SYS.DBA_TEMP_FREE_SPACE TO MONABASE_TEST;
+          GRANT SELECT ON SYS.DATABASE_PROPERTIES TO MONABASE_TEST;
+          GRANT SELECT ON SYS.DBA_USERS TO MONABASE_TEST;
+          GRANT SELECT ON SYS.DBA_TS_QUOTAS TO MONABASE_TEST;
+          GRANT SELECT ON SYS.DBA_SEGMENTS TO MONABASE_TEST;
+          GRANT SELECT ON SYS.DBA_ROLES TO MONABASE_TEST;
+          GRANT SELECT ON SYS.DBA_ROLE_PRIVS TO MONABASE_TEST;
+          GRANT SELECT ON SYS.DBA_SYS_PRIVS TO MONABASE_TEST;
+          GRANT SELECT ON SYS.DBA_OBJECTS TO MONABASE_TEST;
+          GRANT SELECT ON SYS.DBA_DEPENDENCIES TO MONABASE_TEST;
+          GRANT SELECT ON SYS.DBA_CONSTRAINTS TO MONABASE_TEST;
+          EXIT SUCCESS
+          SQL
+      - run: npm run test:db
+
+  electron-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Configure the Electron sandbox in the disposable Linux runner
+        run: |
+          set -euo pipefail
+          # Resolve Electron first because its binary download is lazy.
+          node -e "require('electron')"
+          sandbox="$(node -p "require('path').join(require('path').dirname(require('electron')), 'chrome-sandbox')")"
+          test -f "$sandbox"
+          test ! -L "$sandbox"
+          sudo chown root:root "$sandbox"
+          sudo chmod 4755 "$sandbox"
+      - run: xvfb-run -a --server-args="-screen 0 2560x1440x24" npm run test:ui
