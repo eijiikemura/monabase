@@ -120,26 +120,28 @@ test('Distribution targets have distinct OS and architecture names with both Win
   const { build, scripts, productName } = require('../package.json');
   assert.equal(productName, 'MonaBase');
   assert.deepEqual(build.win.target, ['nsis', 'portable']);
-  assert.deepEqual(build.mac.target, [{ target: 'dmg', arch: ['arm64'] }]);
-  assert.ok(scripts['build:mac'].includes('--arm64'));
+  assert.equal(build.mac.target, undefined);
+  assert.equal(scripts['build:mac'], undefined);
+  assert.equal(scripts.build, 'npm run build:win');
   assert.equal(build.linux, undefined);
   assert.equal(scripts['build:linux'], undefined);
   assert.equal(build.nsis.perMachine, false);
   assert.equal(build.nsis.oneClick, false);
   assert.equal(build.nsis.allowToChangeInstallationDirectory, true);
-  const names = [build.nsis.artifactName, build.portable.artifactName, build.mac.artifactName];
-  assert.equal(new Set(names).size, 3);
+  const names = [build.nsis.artifactName, build.portable.artifactName];
+  assert.equal(new Set(names).size, 2);
   for (const name of names) assert.ok(name.includes('${arch}') && name.includes('${version}'));
-  for (const platform of ['win', 'mac']) assert.ok(scripts[`build:${platform}`].includes('--publish never'));
+  for (const platform of ['win']) assert.ok(scripts[`build:${platform}`].includes('--publish never'));
+  const uploads = releaseWorkflow.jobs.build.steps.find(step => step.uses?.startsWith('actions/upload-artifact@'));
+  assert.equal(uploads.with.path.trim(), 'release/*.exe');
   const matrix = releaseWorkflow.jobs.build.strategy.matrix.include;
-  assert.deepEqual(matrix.map(entry => [entry.platform, entry.arch]), [['win', 'x64'], ['mac', 'arm64']]);
+  assert.deepEqual(matrix.map(entry => [entry.platform, entry.arch]), [['win', 'x64']]);
   // Exercise the locked builder's real filename expansion for every supported download.
   const { expandMacro } = require('app-builder-lib/out/util/macroExpander');
   const { Arch, getArtifactArchName } = require('builder-util');
   const info = { productName, sanitizedProductName: productName, version: '1.0.0' };
   const expected = releaseWorkflow.jobs.attest.steps.find(step => step.run).run;
-  for (const [pattern, arch, ext] of [[build.nsis.artifactName, Arch.x64, 'exe'], [build.portable.artifactName, Arch.x64, 'exe'],
-    [build.mac.artifactName, Arch.arm64, 'dmg']]) {
+  for (const [pattern, arch, ext] of [[build.nsis.artifactName, Arch.x64, 'exe'], [build.portable.artifactName, Arch.x64, 'exe']]) {
     const name = expandMacro(pattern, getArtifactArchName(arch, ext), info, { ext });
     assert.ok(expected.includes(name.replace('1.0.0', '$version')), `Workflow does not accept builder output: ${name}`);
   }
@@ -150,7 +152,7 @@ test('Release checksums require every expected artifact and reject missing or ex
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const assets = path.join(root, 'assets');
   fs.mkdirSync(assets);
-  const names = ['win-x64-Setup.exe', 'win-x64-Portable.exe', 'mac-arm64.dmg']
+  const names = ['win-x64-Setup.exe', 'win-x64-Portable.exe']
     .map(name => `MonaBase-1.0.0-${name}`);
   for (const name of names) fs.writeFileSync(path.join(assets, name), 'test distribution');
   // macOS supplies shasum; Linux and Git Bash supply sha256sum.
@@ -159,11 +161,14 @@ test('Release checksums require every expected artifact and reject missing or ex
   const bash = process.platform === 'win32' ? path.join(process.env.ProgramFiles, 'Git', 'bin', 'bash.exe') : 'bash';
   const run = () => spawnSync(bash, ['-c', script], { cwd: root, env: { ...process.env, RELEASE_TAG: 'v1.0.0' }, encoding: 'utf8' });
   assert.equal(run().status, 0);
-  assert.equal(fs.readFileSync(path.join(assets, 'SHA256SUMS'), 'utf8').trim().split('\n').length, 3);
+  assert.equal(fs.readFileSync(path.join(assets, 'SHA256SUMS'), 'utf8').trim().split('\n').length, 2);
   fs.rmSync(path.join(assets, 'SHA256SUMS'));
   fs.rmSync(path.join(assets, names[0]));
   assert.notEqual(run().status, 0);
   fs.writeFileSync(path.join(assets, names[0]), 'test distribution');
+  fs.writeFileSync(path.join(assets, 'MonaBase-1.0.0-mac-arm64.dmg'), 'unsupported Mac distribution');
+  assert.notEqual(run().status, 0);
+  fs.rmSync(path.join(assets, 'MonaBase-1.0.0-mac-arm64.dmg'));
   fs.writeFileSync(path.join(assets, 'MonaBase-1.0.0-mac-x64.dmg'), 'unsupported Intel distribution');
   assert.notEqual(run().status, 0);
   fs.rmSync(path.join(assets, 'MonaBase-1.0.0-mac-x64.dmg'));
@@ -222,5 +227,27 @@ test('SSH establishes a verified encrypted session with both optional native acc
   } finally {
     client.end();
     await new Promise(resolve => server.close(resolve));
+  }
+});
+
+
+test('Mac package verification rejects invalid bundle signatures and accepts valid signatures', () => {
+  const { verifyMacSignature } = require('../scripts/verify-package.cjs');
+  const app = '/temporary/MonaBase.app';
+  let calls = 0;
+  const run = (command, args, options) => {
+    calls++;
+    assert.equal(command, '/usr/bin/codesign');
+    assert.deepEqual(args, ['--verify', '--deep', '--strict', '--verbose=2', app]);
+    assert.equal(options.timeout, 60000);
+    return { status: 0 };
+  };
+  verifyMacSignature(app, { platform: 'darwin', run });
+  assert.equal(calls, 1);
+  verifyMacSignature(app, { platform: 'win32', run });
+  assert.equal(calls, 1);
+  for (const result of [{ status: 1, stderr: 'code has no resources but signature indicates they must be present' },
+    { status: null, error: new Error('codesign timed out') }]) {
+    assert.throws(() => verifyMacSignature(app, { platform: 'darwin', run: () => result }), /Invalid macOS bundle signature/);
   }
 });

@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 // electron-builder supplies this archive reader through the locked development dependencies.
 const asar = require('@electron/asar');
 const { getCurrentFuseWire, FuseV1Options } = require('@electron/fuses');
@@ -21,6 +22,14 @@ function findArchives(directory) {
 
 function readArchiveFile(archive, filename) {
   return asar.extractFile(archive, path.normalize(filename));
+}
+
+function verifyMacSignature(appPath, { platform = process.platform, run = spawnSync } = {}) {
+  if (platform !== 'darwin') return;
+  const result = run('/usr/bin/codesign', ['--verify', '--deep', '--strict', '--verbose=2', appPath],
+    { encoding: 'utf8', timeout: 60000 });
+  assert.equal(result.status, 0,
+    `Invalid macOS bundle signature: ${result.error?.message || result.stderr || 'codesign verification failed'}`);
 }
 
 async function verify(archive) {
@@ -41,6 +50,7 @@ async function verify(archive) {
   const manifest = JSON.parse(readArchiveFile(archive, 'package.json').toString());
   assert.equal(manifest.main, 'electron/main.js');
   const appMatch = archive.match(/^(.*\.app)[/\\]/);
+  if (appMatch) verifyMacSignature(appMatch[1]);
   const directory = path.dirname(path.dirname(archive));
   const binary = appMatch ? appMatch[1] : [manifest.productName + '.exe', manifest.name + '.exe', manifest.productName, manifest.name]
     .filter(Boolean).map(name => path.join(directory, name)).find(file => fs.existsSync(file));
@@ -98,7 +108,7 @@ async function verify(archive) {
   console.log(`Verified security fuses, bundled files and installed/portable trace storage: ${archive}`);
 }
 
-module.exports = { findArchives, readArchiveFile, verify };
+module.exports = { findArchives, readArchiveFile, verifyMacSignature, verify };
 
 if (require.main === module) {
   (async () => {

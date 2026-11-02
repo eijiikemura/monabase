@@ -54,9 +54,6 @@ jobs:
           - os: windows-2022
             platform: win
             arch: x64
-          - os: macos-15
-            platform: mac
-            arch: arm64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     env:
@@ -88,7 +85,6 @@ jobs:
           retention-days: 7
           path: |
             release/*.exe
-            release/*.dmg
 
   attest:
     needs: build
@@ -113,8 +109,8 @@ jobs:
           set -euo pipefail
           cd assets
           version="${RELEASE_TAG#v}"
-          expected=("MonaBase-$version-win-x64-Setup.exe" "MonaBase-$version-win-x64-Portable.exe" "MonaBase-$version-mac-arm64.dmg")
-          test "$(find . -mindepth 1 -maxdepth 1 | wc -l)" -eq 3
+          expected=("MonaBase-$version-win-x64-Setup.exe" "MonaBase-$version-win-x64-Portable.exe")
+          test "$(find . -mindepth 1 -maxdepth 1 | wc -l)" -eq 2
           for file in "${expected[@]}"; do test -s "$file" && test ! -L "$file"; done
           sha256sum -- "${expected[@]}" > SHA256SUMS
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
@@ -153,4 +149,4 @@ jobs:
             gh attestation verify "$file" --repo "$GH_REPO" --signer-workflow "$GH_REPO/.github/workflows/release.yml" --source-digest "$GITHUB_SHA" --deny-self-hosted-runners
           done
           sha256sum --check --strict SHA256SUMS
-          gh release create "$RELEASE_TAG" ./* --repo "$GH_REPO" --verify-tag --draft --title "MonaBase $RELEASE_TAG" --notes "Unsigned builds. Review the release checklist, test the downloads on each target OS, and edit these notes before publishing. Verify downloads with gh attestation verify FILE --repo $GH_REPO."
+          gh release create "$RELEASE_TAG" ./* --repo "$GH_REPO" --verify-tag --draft --title "MonaBase $RELEASE_TAG" --notes "Windows x64 release: installer and portable EXEs. Builds are not code-signed; Windows SmartScreen may display a warning. Verify downloads with gh attestation verify FILE --repo $GH_REPO."

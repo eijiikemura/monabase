@@ -89,7 +89,7 @@ The Astro + Starlight project in [`website/`](website/README.md) provides a bili
 
 ## Development setup
 
-The desktop app uses Electron 44; macOS 13 or later is required on Mac.
+The desktop app uses Electron 44. Prebuilt releases are currently available for Windows x64 only. Development and automated tests on macOS and Linux continue.
 
 Use Node.js 22.12 or later, npm, and access to an Oracle or PostgreSQL database for interactive database operations.
 
@@ -114,12 +114,11 @@ npm run build:renderer
 ```sh
 npm run build
 npm run build:win
-npm run build:mac
 ```
 
 These commands create desktop artifacts in `release/`. CI runs common tests on Linux and builds and verifies unpacked applications on Windows and macOS. A separate workflow tests disposable PostgreSQL and Oracle databases and Electron sidebar operations; see [the testing guide](docs/TESTING.md). Installer creation, signing, and additional database/version checks follow [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
 
-Windows builds produce separate installer and portable EXEs; macOS uses DMG for Apple Silicon only (Intel Macs are unsupported). Linux distributions are not provided. The manual **Prepare release** workflow builds Windows x64 and macOS arm64, generates GitHub Artifact Attestations and checksums, and attaches the files to a **draft** GitHub Release. Ordinary pushes do not publish releases. See the [release instructions](docs/RELEASE_CHECKLIST.md#prepare-a-github-release) for version tags, publication and download verification. These artifacts are unsigned; attestations do not replace OS code signing. Windows SmartScreen may warn about an unrecognized or unsigned app. **Verify the source and release files before proceeding**; do not disable SmartScreen globally. See the [installation guide](https://eijiikemura.github.io/monabase/guides/getting-started/) for more information. A Microsoft Store listing should be treated as available only after it is published.
+Windows builds produce separate installer and portable EXEs. macOS and Linux distributions are not currently provided. The manual **Prepare release** workflow builds Windows x64, generates GitHub Artifact Attestations and checksums, and attaches the files to a **draft** GitHub Release. Ordinary pushes do not publish releases. See the [release instructions](docs/RELEASE_CHECKLIST.md#prepare-a-github-release) for version tags, publication and download verification. These artifacts are unsigned; attestations do not replace OS code signing. Windows SmartScreen may warn about an unrecognized or unsigned app. **Verify the source and release files before proceeding**; do not disable SmartScreen globally. See the [installation guide](https://eijiikemura.github.io/monabase/guides/getting-started/) for more information. A Microsoft Store listing should be treated as available only after it is published.
 
 ## Configuration and local data
 

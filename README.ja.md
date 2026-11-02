@@ -89,7 +89,7 @@ AIデバッグの根拠として利用できる、Oracleの実行ステップと
 
 ## 開発環境の準備
 
-デスクトップアプリはElectron 44を使用しています。MacではmacOS 13以降が必要です。
+デスクトップアプリはElectron 44を使用しています。現在の配布対象はWindows x64のみです。macOS・Linuxでの開発と自動テストは継続しています。
 
 Node.js 22.12以降、npm、およびDB操作を行うためのOracleまたはPostgreSQL環境を用意してください。
 
@@ -114,12 +114,11 @@ npm run build:renderer
 ```sh
 npm run build
 npm run build:win
-npm run build:mac
 ```
 
 これらのコマンドでデスクトップアプリの成果物を`release/`に作成します。CIはLinuxで共通テストを実行し、WindowsとmacOSで展開済みアプリをビルド・検証します。別のワークフローでは、使い捨てのPostgreSQL／Oracle環境とElectronサイドバー操作をテストします。詳細は[テストガイド](docs/TESTING.md)をご覧ください。インストーラー作成、署名、追加のDB・バージョン検証は[リリースチェックリスト](docs/RELEASE_CHECKLIST.md)に従います。
 
-Windows向けにはインストーラー版とポータブル版のEXEを別々に作成します。macOS向けは**Apple Silicon専用DMG**です（Intel Macは非対応）。Linux向けの配布物は提供していません。手動実行の**Prepare release**ワークフローでは、Windows x64とmacOS arm64のビルドを行い、GitHub Artifact Attestationsとチェックサムを生成して、**下書きのGitHub Release**に添付します。通常のpushだけではリリースは公開されません。バージョンタグ、公開、ダウンロード検証の手順は[リリース手順](docs/RELEASE_CHECKLIST.md#prepare-a-github-release)をご覧ください。配布物はコード署名されておらず、AttestationはOSのコード署名の代わりにはなりません。
+Windows向けにはインストーラー版とポータブル版のEXEを別々に作成します。現在、macOS・Linux向けの配布物は提供していません。手動実行の**Prepare release**ワークフローでは、Windows x64のビルドを行い、GitHub Artifact Attestationsとチェックサムを生成して、**下書きのGitHub Release**に添付します。通常のpushだけではリリースは公開されません。バージョンタグ、公開、ダウンロード検証の手順は[リリース手順](docs/RELEASE_CHECKLIST.md#prepare-a-github-release)をご覧ください。配布物はコード署名されておらず、AttestationはOSのコード署名の代わりにはなりません。
 
 署名のないWindowsアプリはSmartScreenによって警告される場合があります。**続行する前に配布元とリリースファイルを確認**してください。SmartScreen全体を無効にしないでください。詳しくは[インストールガイド](https://eijiikemura.github.io/monabase/ja/guides/getting-started/)を参照してください。Microsoft Store版は、実際に公開されてから利用可能な配布方法として案内します。
 

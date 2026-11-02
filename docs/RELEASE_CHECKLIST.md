@@ -9,7 +9,6 @@ draft, not a public release. It does not run on pushes, tags or PRs. Its files a
 | --- | --- | --- |
 | Windows installer | x64 | `MonaBase-1.0.0-win-x64-Setup.exe` |
 | Windows portable | x64 | `MonaBase-1.0.0-win-x64-Portable.exe` |
-| macOS (Apple Silicon) | arm64 | `MonaBase-1.0.0-mac-arm64.dmg` |
 
 1. Review and commit the release source, set `package.json` and the root package
    entry in `package-lock.json` to the same version, and push to the default branch.
@@ -21,8 +20,8 @@ draft, not a public release. It does not run on pushes, tags or PRs. Its files a
    moved, prepare a new reviewed version/tag instead. Forks and other branches
    cannot pass the workflow's initial guard.
 4. Wait for tests, OS builds, package verification, provenance generation and
-   verification to succeed. The workflow checks all three filenames, generates
-   `SHA256SUMS`, attests the downloads and checksum file, and attaches all four to
+   verification to succeed. The workflow checks both Windows filenames, generates
+   `SHA256SUMS`, attests the downloads and checksum file, and attaches all three to
    the draft. It rechecks the tag's commit before creating the draft.
 5. Open **Releases**, review the draft, replace its notes, download and test the
    files on the target systems using the manual checks below. Mark prereleases
@@ -36,8 +35,8 @@ days; uploaded Release assets have their own lifetime.
 Windows installers allow a per-user installation and a destination choice. The
 portable EXE runs without an installer; some connection data and credentials still
 use OS storage as described below. Locally, `npm run build:win` creates both EXEs;
-`npm run build:mac` creates a DMG for Apple Silicon only (Intel Macs are unsupported).
-Linux distributions are not provided. Build on the corresponding OS
+macOS and Linux distributions are not currently provided.
+`npm run build` also targets Windows; `build:mac` is not defined. Build on the corresponding OS
 (Windows cross-packaging exceptions are described below). These commands never
 publish. The workflow uses native runners for all architectures.
 
@@ -65,16 +64,25 @@ Attestation generation/verification needs GitHub and Sigstore network access.
 See [GitHub's attestation guide](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations)
 and [CLI verification policy](https://cli.github.com/manual/gh_attestation_verify).
 
-These builds have no Windows Authenticode signature or Apple Developer ID
-signature/notarization. Attestations establish origin; they do not remove
-SmartScreen/Gatekeeper warnings or establish absence of vulnerabilities. Apply
+These Windows downloads have no Authenticode signature.
+Attestations establish origin; they do not remove SmartScreen warnings or establish absence of vulnerabilities. Apply
 the signing and OS checks below before treating the downloads as release-tested.
+
+Mac CI unpacked builds use explicit ad-hoc signing (`build.mac.identity: "-"`) so packaging
+changes are covered by a valid bundle signature. `verify:package` runs
+`codesign --verify --deep --strict` on macOS and fails on an invalid signature.
+This is not a Developer ID signature or notarization: downloaded builds can still
+be blocked by Gatekeeper. For general distribution without these warnings,
+configure Developer ID signing and Apple notarization. Do not disable Gatekeeper
+globally or mistake successful archive/fuse checks for a first-download launch test.
+
 
 ## Automated checks
 
 The CI workflow runs `npm run check` and builds the renderer on Linux. Separate
 jobs on Windows and macOS run tests, build an unpacked desktop application with
-signing disabled, and run the package verifier. The integration workflow keeps
+no trusted publisher signature, and run the package verifier.
+Mac CI uses ad-hoc signing for bundle integrity; it does not create a downloadable DMG. The integration workflow keeps
 its PostgreSQL, Oracle and Electron UI tests on Linux. These jobs do not publish releases.
 
 To run the packaging checks locally:
