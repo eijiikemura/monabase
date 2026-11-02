@@ -32,7 +32,7 @@ const protections = [
     <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span>{ui.eyebrow}</p>
     <h1 id="_top">{ui.hero_title.split('\n').map((line, index) => <span class:list={{ accent: index === 1 }}>{line}</span>)}</h1>
     <p class="hero-intro">{ui.hero_intro}</p>
-    <div class="hero-actions"><a class="button primary" href={sitePath(locale, 'guides/getting-started')}>{ui.read_manual}<span aria-hidden="true">↗</span></a><a class="button secondary" href={`${SITE.repository}/releases`}>{ui.view_downloads}<span aria-hidden="true">↓</span></a></div>
+    <div class="hero-actions"><a class="button primary" href={sitePath(locale, 'guides/getting-started')}>{ui.read_manual}<span aria-hidden="true">↗</span></a><a class="button secondary" href={`${SITE.repository}/releases/latest`}>{ui.view_downloads}<span aria-hidden="true">↓</span></a></div>
     <div class="hero-meta"><DbBadges databases={['oracle', 'postgresql']} label={ui.db_support} /><span>{ui.platforms}</span><span>{ui.open_source}</span></div>
     <Screenshot locale={locale} name="sql-workspace" alt={ui.hero_caption} caption={ui.hero_caption} priority />
   </section>
@@ -68,6 +68,6 @@ const protections = [
          ...['styles','settings','contact','privacy-policy'].flatMap(slug => pages.filter(page => page.slug === slug))]
       : pages.filter(page => page.group === group.slug)).map(page => <article class="screen-card"><DbBadges databases={page.databases} label={ui.db_support} /><h4><a href={sitePath(locale, `guides/${page.slug}`)}>{page.title}<span aria-hidden="true">↗</span></a></h4><p>{page.summary}</p></article>)}</div></div>)}
   </section>
-  <section class="closing" aria-labelledby="closing-title"><p class="eyebrow">MONABASE</p><h2 id="closing-title">{ui.footer_title}</h2><p>{ui.footer_intro}</p><div class="hero-actions"><a class="button primary" href={sitePath(locale, 'guides/connection')}>{ui.read_manual} <span aria-hidden="true">→</span></a><a class="button secondary" href={SITE.repository}>{ui.view_source}</a></div><p class="download-note">{ui.download_note}</p></section>
+  <section class="closing" aria-labelledby="closing-title"><p class="eyebrow">MONABASE</p><h2 id="closing-title">{ui.footer_title}</h2><p>{ui.footer_intro}</p><div class="hero-actions"><a class="button primary" href={sitePath(locale, 'guides/connection')}>{ui.read_manual} <span aria-hidden="true">→</span></a><a class="button secondary" href={SITE.repository}>{ui.view_source}</a></div><p class="download-note">{ui.download_note} <a href={`${SITE.repository}/releases`}>{ui.release_history}</a></p></section>
   <footer class="landing-footer"><span>MonaBase</span><p>{ui.footer_credit}</p><a href={sitePath(locale, "guides/privacy-policy")}>{ui.privacy_link}</a><a href={sitePath(locale, "guides/contact")}>{ui.contact_link}</a><a href={`${SITE.repository}/blob/main/LICENSE`}>Apache 2.0 ↗</a></footer>
 </div>

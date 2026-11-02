@@ -79,6 +79,7 @@ export function siteContent(t: Translate) {
       hero_intro: t("site_hero_intro"),
       read_manual: t("site_read_manual"),
       view_downloads: t("site_view_downloads"),
+      release_history: t("site_release_history"),
       view_source: t("site_view_source"),
       platforms: t("site_platforms"),
       open_source: t("site_open_source"),
