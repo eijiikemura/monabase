@@ -2840,6 +2840,20 @@ app.whenReady().then(async () => {
         const planToolbar = `Array.from(document.querySelectorAll('[data-testid="sql-editor-toolbar"]')).find(el=>el.getBoundingClientRect().width>0)`;
         win.setSize(650, 1000);
         await waitFor(win, `(${planToolbar})?.getAttribute('data-compact')==='true' && !!(${planToolbar}).querySelector('button[aria-label="More SQL actions"]')`);
+        if (dbType === 'postgresql') {
+          const schemaControl = `(${planToolbar}).querySelector('[role="combobox"][aria-label="Schema selection"]')`;
+          await waitFor(win, `!!(${schemaControl}) && (${schemaControl}).getBoundingClientRect().width>0`);
+          assert.equal(await win.webContents.executeJavaScript(`(()=>{const control=(${schemaControl}).getBoundingClientRect(),toolbar=(${planToolbar}).getBoundingClientRect();return control.left>=toolbar.left-1 && control.right<=toolbar.right+1;})()`), true);
+          await win.webContents.executeJavaScript(`(${schemaControl}).dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));true`);
+          await waitFor(win, `!!document.querySelector('[role=option][data-value=""]')`);
+          await win.webContents.executeJavaScript(`document.querySelector('[role=option][data-value=""]').click();true`);
+          await waitFor(win, `(${schemaControl}).textContent.trim()==='Schema selection'`);
+          assert.equal(await win.webContents.executeJavaScript(`(${planToolbar}).innerText.includes('Schema:')`), false);
+          await win.webContents.executeJavaScript(`(${schemaControl}).dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));true`);
+          await waitFor(win, `!!document.querySelector('[role=option][data-value="public"]')`);
+          await win.webContents.executeJavaScript(`document.querySelector('[role=option][data-value="public"]').click();true`);
+          await waitFor(win, `(${schemaControl}).textContent.trim()==='public'`);
+        }
         await win.webContents.executeJavaScript(`(${planToolbar}).querySelector('button[aria-label="More SQL actions"]').click();true`);
         await waitFor(win, `Array.from(document.querySelectorAll('label')).some(label=>label.textContent.trim()==='Parse' && label.getBoundingClientRect().width>0)`);
         await win.webContents.executeJavaScript(`Array.from(document.querySelectorAll('label')).find(label=>label.textContent.trim()==='Parse' && label.getBoundingClientRect().width>0).querySelector('input').click();true`);

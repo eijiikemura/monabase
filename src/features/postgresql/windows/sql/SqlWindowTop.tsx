@@ -42,7 +42,7 @@ const styles = {
   bindVarList: { p: 2, flexGrow: 1, overflowY: 'auto' as const, display: 'flex', flexDirection: 'column' as const, gap: 2 },
   bindVarItemBox: { display: 'flex', flexDirection: 'column' as const, gap: 1, p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1, bgcolor: 'action.hover' },
   selectWhite: { bgcolor: 'background.paper' },
-  schemaSelect: { minWidth: 150, ml: 1, '& .MuiSelect-select': { py: 0.5, fontSize: '0.85rem' } } 
+  schemaSelect: { width: 150, minWidth: 0, flexShrink: 0, '& .MuiSelect-select': { py: 0.5, fontSize: '0.85rem' } }
 };
 
 const codeSetup = { lineNumbers: true, autocompletion: true };
@@ -94,6 +94,22 @@ const SqlToolbar = memo(({
       </Tooltip>
 
       {bindToggle}
+      {schemas && setSelectedSchema && (
+        <>
+          <Divider orientation="vertical" flexItem sx={styles.divider} />
+          <Tooltip title={t("specify_where_to_resolve_objects_referenced_without_a_schema_name")}>
+            <FormControl size="small" sx={styles.schemaSelect}>
+              <Select disabled={isAiGenerating} displayEmpty value={selectedSchema || ''}
+                renderValue={value => value || <Box component="span" sx={{ color: 'text.secondary' }}>{t("schema_selection")}</Box>}
+                onChange={(e) => setSelectedSchema(e.target.value)}
+                inputProps={{ 'aria-label': t("schema_selection") }}>
+                <MenuItem value=""><em>{t("none_specified_in_sql")}</em></MenuItem>
+                {schemas.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Tooltip>
+        </>
+      )}
     </>}>
       <Tooltip title={t("when_checked_the_execute_button_analyzes_the_sql_execution_plan")}>
         <FormControlLabel
@@ -127,23 +143,6 @@ const SqlToolbar = memo(({
         <Tooltip title={t("ask_ai_to_create_or_modify_sql_using_the_current_sql_as_context")}>
           <Box component="span" sx={{ display: 'inline-flex' }}><AiRequestButton disabled={isAiGenerating} onClick={handleRequestAi} sx={styles.formatBtn} aria-label={t("ask_ai_to_create_or_modify_sql")} /></Box>
         </Tooltip>
-      )}
-
-      {schemas && setSelectedSchema && (
-        <>
-          <Divider orientation="vertical" flexItem sx={styles.divider} />
-          <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>{t("schema_4")}</Typography>
-          <Tooltip title={t("specify_where_to_resolve_objects_referenced_without_a_schema_name")}>
-            <FormControl size="small" sx={styles.schemaSelect}>
-              <Select disabled={isAiGenerating} displayEmpty value={selectedSchema || ''}
-                onChange={(e) => setSelectedSchema(e.target.value)}
-                inputProps={{ 'aria-label': t("schema_selection") }}>
-                <MenuItem value=""><em>{t("none_specified_in_sql")}</em></MenuItem>
-                {schemas.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-              </Select>
-            </FormControl>
-          </Tooltip>
-        </>
       )}
     </SqlEditorToolbar>
   );
