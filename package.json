@@ -5,13 +5,18 @@
   "author": {
     "name": "eiji ikemura"
   },
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "commonjs",
   "main": "electron/main.js",
   "scripts": {
     "dev": "concurrently \"vite\" \"cross-env NODE_ENV=development wait-on http://localhost:5173 && electron .\"",
     "build": "npm run build:win",
-    "build:store": "npm run build:renderer && electron-builder --win msix --x64 --publish never",
+    "build:store": "node scripts/verify-appx.cjs --assets && npm run build:renderer && electron-builder --win appx --x64 --config.npmRebuild=false --publish never && node scripts/verify-appx.cjs --latest",
+    "assets:appx": "node scripts/generate-appx-assets.cjs",
+    "verify:appx": "node scripts/verify-appx.cjs",
+    "build:mac": "npm run build:renderer && node scripts/mac-release.cjs build",
+    "notarize:mac": "node scripts/mac-release.cjs notarize",
+    "verify:mac": "node scripts/mac-release.cjs verify",
     "build:win": "tsc -b && vite build && electron-builder --win --x64 --config.npmRebuild=false --publish never",
     "lint": "eslint src electron tests scripts vite.config.ts i18next-parser.config.js",
     "i18n:extract": "i18next",
@@ -41,7 +46,10 @@
     },
     "win": {
       "icon": "src/assets/icon.png",
-      "target": ["nsis", "portable"],
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "files": [
         "dist/**/*",
         "electron/**/*",
@@ -68,7 +76,10 @@
       "publisher": "CN=BD235DDE-3495-4169-8486-0E9653BDBC89",
       "publisherDisplayName": "Eiji Ikemura",
       "displayName": "MonaBase",
-      "languages": ["en-US", "ja-JP"]
+      "languages": [
+        "en-US",
+        "ja-JP"
+      ]
     },
     "files": [
       "dist/**/*",

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2026 eiji ikemura; SPDX-License-Identifier: Apache-2.0 -->
+<plist version="1.0"><dict>
+  <!-- Electron/V8 arm64 JIT. -->
+  <key>com.apple.security.cs.allow-jit</key><true/>
+  <!-- Oracle thick mode can load a separately signed Instant Client from the user's selected directory. -->
+  <key>com.apple.security.cs.disable-library-validation</key><true/>
+</dict></plist>

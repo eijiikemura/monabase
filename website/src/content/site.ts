@@ -141,6 +141,7 @@ export function siteContent(t: Translate) {
               [t("getting_started_detail_1_1_1"), t("getting_started_detail_1_1_2"), t("getting_started_detail_1_1_3")],
               [t("getting_started_detail_1_2_1"), t("getting_started_detail_1_2_2"), t("getting_started_detail_1_2_3")],
               [t("getting_started_detail_1_3_1"), t("getting_started_detail_1_3_2"), t("getting_started_detail_1_3_3")],
+              [t("getting_started_detail_1_mac_1"), t("getting_started_detail_1_mac_2"), t("getting_started_detail_1_mac_3")],
               [t("getting_started_detail_1_4_1"), t("getting_started_detail_1_4_2"), t("getting_started_detail_1_4_3")],
               [t("getting_started_detail_1_5_1"), t("getting_started_detail_1_5_2"), t("getting_started_detail_1_5_3")],
               [t("getting_started_detail_1_6_1"), t("getting_started_detail_1_6_2"), t("getting_started_detail_1_6_3")],

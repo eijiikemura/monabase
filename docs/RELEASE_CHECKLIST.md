@@ -35,8 +35,11 @@ days; uploaded Release assets have their own lifetime.
 Windows installers allow a per-user installation and a destination choice. The
 portable EXE runs without an installer; some connection data and credentials still
 use OS storage as described below. Locally, `npm run build:win` creates both EXEs;
-macOS and Linux distributions are not currently provided.
-`npm run build` also targets Windows; `build:mac` is not defined. Build on the corresponding OS
+From v1.0.1, macOS 13+ on Apple Silicon is supported through a separately
+signed and notarized DMG; Linux and Intel Mac distributions are not provided.
+`npm run build` also targets Windows. A separate, manual `build:mac` command is
+available for Developer ID signing; see [macOS distribution](MACOS_DISTRIBUTION.md).
+It is not part of this release workflow. Build on the corresponding OS
 (Windows cross-packaging exceptions are described below). These commands never
 publish. The workflow uses native runners for all architectures.
 
@@ -362,6 +365,15 @@ and operating systems actually being distributed.
   change escaping and is outside the first-open protection.
 
 
+### Microsoft Store tiles
+
+For Store submissions, run `npm run build:store` on Windows and follow the
+[AppX packaging and inspection guide](MICROSOFT_STORE.md). The command checks all
+40 branded resources before packaging and the final archive afterwards. Check
+actual Start menu/taskbar tiles after installation. Preserve the Partner Center
+identity/publisher/application ID and version when fixing artwork. Store assets
+live in `build/appx/`; do not rely on the builder's sample fallback images.
+
 ### Windows file metadata and publisher identity
 
 `package.json` declares the author name `eiji ikemura`. Electron-builder uses it
@@ -505,3 +517,15 @@ it does not fail the build and its threshold is not increased to hide the warnin
 - Search condition columns and show only entered filters/sorts. Hidden predicates
   must remain effective and be indicated. Clear all must preserve column types and
   exclusions, include hidden drafts and leave existing results until Execute.
+
+## Attach the supported macOS distribution (v1.0.1 onward)
+
+After the Windows draft is ready, build the same version/tag locally using
+[the Developer ID workflow](MACOS_DISTRIBUTION.md). Complete signing, Apple
+notarization, stapling and Gatekeeper checks, then attach only the final DMG
+and its checksum renamed `SHA256SUMS-mac-arm64` to that draft. Keep the
+attested Windows `SHA256SUMS` unchanged. The manual DMG and its checksum do
+not have GitHub Artifact Attestations. Review all three downloads, then
+publish the release. Download the published DMG and verify its hash and
+signatures again; test installation and first launch through normal OS controls.
+Do not replace artifacts or move tags of an already published release.

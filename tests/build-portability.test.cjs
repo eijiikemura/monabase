@@ -121,7 +121,8 @@ test('Distribution targets have distinct OS and architecture names with both Win
   assert.equal(productName, 'MonaBase');
   assert.deepEqual(build.win.target, ['nsis', 'portable']);
   assert.equal(build.mac.target, undefined);
-  assert.equal(scripts['build:mac'], undefined);
+  assert.ok(scripts['build:mac'].includes('scripts/mac-release.cjs build'));
+  assert.equal(build.mac.identity, '-');
   assert.equal(scripts.build, 'npm run build:win');
   assert.equal(build.linux, undefined);
   assert.equal(scripts['build:linux'], undefined);

@@ -34,3 +34,11 @@ dist-ssr
 # Personal notes and local working files
 /local/
 /AGENTS.md
+
+# Local signing certificates and Apple private keys
+*.p12
+*.pfx
+AuthKey_*.p8
+
+# Windows Explorer metadata
+Thumbs.db

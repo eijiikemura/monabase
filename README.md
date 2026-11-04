@@ -89,7 +89,7 @@ The Astro + Starlight project in [`website/`](website/README.md) provides a bili
 
 ## Development setup
 
-The desktop app uses Electron 44. Prebuilt releases are currently available for Windows x64 only. Development and automated tests on macOS and Linux continue.
+The desktop app uses Electron 44. From v1.0.1, prebuilt releases support Windows x64 and macOS 13+ on Apple Silicon (arm64). Intel Macs and Linux distributions are not supported; Linux remains a test platform.
 
 Use Node.js 22.12 or later, npm, and access to an Oracle or PostgreSQL database for interactive database operations.
 
@@ -118,7 +118,9 @@ npm run build:win
 
 These commands create desktop artifacts in `release/`. CI runs common tests on Linux and builds and verifies unpacked applications on Windows and macOS. A separate workflow tests disposable PostgreSQL and Oracle databases and Electron sidebar operations; see [the testing guide](docs/TESTING.md). Installer creation, signing, and additional database/version checks follow [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
 
-Windows builds produce separate installer and portable EXEs. macOS and Linux distributions are not currently provided. The manual **Prepare release** workflow builds Windows x64, generates GitHub Artifact Attestations and checksums, and attaches the files to a **draft** GitHub Release. Ordinary pushes do not publish releases. See the [release instructions](docs/RELEASE_CHECKLIST.md#prepare-a-github-release) for version tags, publication and download verification. These artifacts are unsigned; attestations do not replace OS code signing. Windows SmartScreen may warn about an unrecognized or unsigned app. **Verify the source and release files before proceeding**; do not disable SmartScreen globally. See the [installation guide](https://eijiikemura.github.io/monabase/guides/getting-started/) for more information. A Microsoft Store listing should be treated as available only after it is published.
+Windows builds produce separate installer and portable EXEs. From v1.0.1, macOS Apple Silicon DMGs are Developer ID-signed, Apple-notarized and stapled. Open the DMG, drag MonaBase to Applications, eject the DMG and launch from Applications. See [macOS distribution](docs/MACOS_DISTRIBUTION.md) for the separate local signing/notarization workflow; its verified DMG and `SHA256SUMS-mac-arm64` are attached manually. Linux distributions are not provided. The manual **Prepare release** workflow builds Windows x64, generates GitHub Artifact Attestations and checksums, and attaches the files to a **draft** GitHub Release. Ordinary pushes do not publish releases. See the [release instructions](docs/RELEASE_CHECKLIST.md#prepare-a-github-release) for version tags, publication and download verification. The Windows artifacts are unsigned; their attestations do not replace OS code signing. The manually built Mac DMG has Apple notarization but no GitHub Artifact Attestation. Windows SmartScreen may warn about an unrecognized or unsigned app. **Verify the source and release files before proceeding**; do not disable SmartScreen globally. See the [installation guide](https://eijiikemura.github.io/monabase/guides/getting-started/) for more information. A Microsoft Store listing should be treated as available only after it is published.
+
+Microsoft Store AppX builds use `npm run build:store`; see the [Store packaging guide](docs/MICROSOFT_STORE.md) for branded tile assets and archive verification.
 
 ## Configuration and local data
 

@@ -57,6 +57,8 @@ The README leads with Git source history and AI-assisted editing, followed by SQ
 
 Suggested output: `docs/screenshots/er-diagram.png`.
 
+Japanese companion: [er-diagram-ja.png](screenshots/er-diagram-ja.png) (3200 × 2000). Captured from the current Japanese production renderer for Store submission, using simulated PostgreSQL metadata matching the four-table fixture in `examples/screenshots/postgresql/01_schema.sql`. It shows the three real fixture relationships, comments, and types; no live DB changes or external requests were made. The existing English and manual captures are unchanged.
+
 Open **ER Diagram Viewer** from the application menu, select the demo schema, select **All**, and click **Draw ER Diagram**. An empty demo account ensures unrelated tables do not crowd the diagram. The aggregate view may also appear in the generated diagram; omit it from the canvas when focusing on table relationships. If the account contains other tables, starting from `MB_DEMO_ORDERS` / `mb_demo_orders` shows its immediate relations, which can omit indirectly related tables such as products.
 
 Show these four tables and all three foreign-key relationships:
@@ -89,6 +91,8 @@ Trace execution needs the database permissions and instrumentation used by MonaB
 ## Shot 4: Git source history
 
 Published image: `docs/screenshots/git-source-history.png`.
+
+Japanese companion: [git-source-history-ja.png](screenshots/git-source-history-ja.png) (3200 × 2000). Captured from the current Japanese production renderer for Store submission. It reuses the original three recorded Git revisions read-only, with the owner anonymized as DEMO and simulated DB metadata/source retrieval; no live DB or Git writes and no AI requests were made. The existing English and manual captures are unchanged.
 
 Use a separate copy of the demo function so the original remains available for SQL and trace captures. Copy Oracle file 03, rename both the function declaration and its final closing name to `MB_DEMO_GIT_TOTAL`, and create it only if that name is unused.
 

@@ -10,7 +10,7 @@ interface Props { locale: Locale; }
 const { locale } = Astro.props;
 const { ui, pages, groups } = siteContent(translator(locale));
 const features = [
-  { number: '01', slug: 'git', title: ui.git_feature_title, body: ui.git_feature_body, image: 'git-source-history' },
+  { number: '01', slug: 'git', title: ui.git_feature_title, body: ui.git_feature_body, image: 'git-source-history-feature' },
   { number: '02', slug: 'ai', title: ui.ai_feature_title, body: ui.ai_feature_body, image: 'ai-coding-assistant' },
   { number: '03', slug: 'trace', title: ui.trace_feature_title, body: ui.trace_feature_body, image: 'trace-debugging' },
 ];
@@ -40,7 +40,7 @@ const protections = [
     <p class="eyebrow">{ui.features_eyebrow}</p>
     <h2 id="features-title">{ui.features_title}</h2>
     <div class="feature-grid">{features.map(feature => <article class="feature-card"><span class="feature-number">{feature.number}</span><h3>{feature.title}</h3><p>{feature.body}</p><a href={sitePath(locale, `guides/${feature.slug}`)}>{ui.learn_more}<span aria-hidden="true"> →</span></a></article>)}</div>
-    <div class="feature-showcase"><div><p class="eyebrow">{ui.git_label}</p><h3>{ui.git_feature_title}</h3><p>{ui.git_feature_body}</p><a href={sitePath(locale, 'guides/git')}>{ui.learn_more} <span aria-hidden="true">→</span></a></div><Screenshot locale={locale} name="git-source-history" alt={ui.git_feature_title} /></div>
+    <div class="feature-showcase"><div><p class="eyebrow">{ui.git_label}</p><h3>{ui.git_feature_title}</h3><p>{ui.git_feature_body}</p><a href={sitePath(locale, 'guides/git')}>{ui.learn_more} <span aria-hidden="true">→</span></a></div><Screenshot locale={locale} name="git-source-history-feature" alt={ui.git_feature_title} /></div>
     <div class="feature-showcase reverse"><div><p class="eyebrow">{ui.ai_label}</p><h3>{ui.ai_feature_title}</h3><p>{ui.ai_feature_body}</p><a href={sitePath(locale, 'guides/ai')}>{ui.learn_more} <span aria-hidden="true">→</span></a></div><Screenshot locale={locale} name="ai-coding-assistant" alt={ui.ai_feature_title} /></div>
   </section>
   <section class="ai-workflows" aria-labelledby="ai-workflows-title">

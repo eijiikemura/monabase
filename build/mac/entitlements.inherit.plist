@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2026 eiji ikemura; SPDX-License-Identifier: Apache-2.0 -->
+<plist version="1.0"><dict>
+  <!-- Helpers need V8/JIT, but do not load an external Oracle Client. -->
+  <key>com.apple.security.cs.allow-jit</key><true/>
+</dict></plist>

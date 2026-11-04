@@ -89,7 +89,7 @@ AIデバッグの根拠として利用できる、Oracleの実行ステップと
 
 ## 開発環境の準備
 
-デスクトップアプリはElectron 44を使用しています。現在の配布対象はWindows x64のみです。macOS・Linuxでの開発と自動テストは継続しています。
+デスクトップアプリはElectron 44を使用しています。v1.0.1からWindows x64とmacOS 13以上のApple Silicon（arm64）向け配布に対応します。Intel Mac・Linux向け配布はありません。Linux上の自動テストは継続しています。
 
 Node.js 22.12以降、npm、およびDB操作を行うためのOracleまたはPostgreSQL環境を用意してください。
 
@@ -118,9 +118,11 @@ npm run build:win
 
 これらのコマンドでデスクトップアプリの成果物を`release/`に作成します。CIはLinuxで共通テストを実行し、WindowsとmacOSで展開済みアプリをビルド・検証します。別のワークフローでは、使い捨てのPostgreSQL／Oracle環境とElectronサイドバー操作をテストします。詳細は[テストガイド](docs/TESTING.md)をご覧ください。インストーラー作成、署名、追加のDB・バージョン検証は[リリースチェックリスト](docs/RELEASE_CHECKLIST.md)に従います。
 
-Windows向けにはインストーラー版とポータブル版のEXEを別々に作成します。現在、macOS・Linux向けの配布物は提供していません。手動実行の**Prepare release**ワークフローでは、Windows x64のビルドを行い、GitHub Artifact Attestationsとチェックサムを生成して、**下書きのGitHub Release**に添付します。通常のpushだけではリリースは公開されません。バージョンタグ、公開、ダウンロード検証の手順は[リリース手順](docs/RELEASE_CHECKLIST.md#prepare-a-github-release)をご覧ください。配布物はコード署名されておらず、AttestationはOSのコード署名の代わりにはなりません。
+Windows向けにはインストーラー版とポータブル版のEXEを別々に作成します。v1.0.1からMac版も正式に提供します。Mac版はDeveloper ID署名・Apple公証済みDMGです。DMGを開き、MonaBaseをアプリケーションへ移し、DMGを取り出してから起動してください。詳細は[Mac配布手順](docs/MACOS_DISTRIBUTION.md)を参照してください。手動実行の**Prepare release**ワークフローでは、Windows x64のビルドを行い、GitHub Artifact Attestationsとチェックサムを生成して、**下書きのGitHub Release**に添付します。通常のpushだけではリリースは公開されません。バージョンタグ、公開、ダウンロード検証の手順は[リリース手順](docs/RELEASE_CHECKLIST.md#prepare-a-github-release)をご覧ください。Windows配布物はコード署名されておらず、AttestationはOSのコード署名の代わりにはなりません。Mac版はローカルで署名・公証したDMGとSHA256SUMS-mac-arm64を手動で添付します。手動Mac版にはGitHub Artifact Attestationは付与されません。
 
 署名のないWindowsアプリはSmartScreenによって警告される場合があります。**続行する前に配布元とリリースファイルを確認**してください。SmartScreen全体を無効にしないでください。詳しくは[インストールガイド](https://eijiikemura.github.io/monabase/ja/guides/getting-started/)を参照してください。Microsoft Store版は、実際に公開されてから利用可能な配布方法として案内します。
+
+Microsoft Store用AppXは `npm run build:store` で作成します。タイル画像とパッケージ内部の確認方法は[Store向け配布ガイド](docs/MICROSOFT_STORE.md)を参照してください。
 
 ## 設定とローカルデータ
 

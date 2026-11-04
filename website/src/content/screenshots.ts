@@ -1,6 +1,9 @@
 // Copyright 2026 eiji ikemura
 // SPDX-License-Identifier: Apache-2.0
 
+import enGitFeature from '../../../docs/screenshots/git-source-history.png';
+import jaGitFeature from '../../../docs/screenshots/git-source-history-ja.png';
+
 import type { ImageMetadata } from 'astro';
 import type { Locale } from '../i18n/index';
 
@@ -93,6 +96,7 @@ export const screenshots: Record<Locale, Record<string, ImageMetadata>> = {
     'database-links': enDatabaseLinks,
     'er-diagram': enErDiagram,
     'git-source-history': enGitSourceHistory,
+    'git-source-history-feature': enGitFeature,
     'indexes': enIndexes,
     'login': enLogin,
     'materialized-view-logs': enMaterializedViewLogs,
@@ -130,6 +134,7 @@ export const screenshots: Record<Locale, Record<string, ImageMetadata>> = {
     'database-links': jaDatabaseLinks,
     'er-diagram': jaErDiagram,
     'git-source-history': jaGitSourceHistory,
+    'git-source-history-feature': jaGitFeature,
     'indexes': jaIndexes,
     'login': jaLogin,
     'materialized-view-logs': jaMaterializedViewLogs,
