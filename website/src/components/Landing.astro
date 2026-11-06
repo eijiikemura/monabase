@@ -32,7 +32,7 @@ const protections = [
     <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span>{ui.eyebrow}</p>
     <h1 id="_top">{ui.hero_title.split('\n').map((line, index) => <span class:list={{ accent: index === 1 }}>{line}</span>)}</h1>
     <p class="hero-intro">{ui.hero_intro}</p>
-    <div class="hero-actions"><a class="button primary" href={sitePath(locale, 'guides/getting-started')}>{ui.read_manual}<span aria-hidden="true">↗</span></a><a class="button secondary" href={`${SITE.repository}/releases/latest`}>{ui.view_downloads}<span aria-hidden="true">↓</span></a></div>
+    <div class="hero-actions"><a class="button primary" href={sitePath(locale, 'guides/getting-started')}>{ui.read_manual}<span aria-hidden="true">↗</span></a><a class="button secondary" href={`${SITE.repository}/releases/latest`}>{ui.view_downloads}<span aria-hidden="true">↓</span></a><a class="button secondary" href={SITE.microsoftStore}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16v15H4zM8 7V5a4 4 0 0 1 8 0v2" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 11h3.5v3.5H8zm4.5 0H16v3.5h-3.5zM8 15.5h3.5V19H8zm4.5 0H16V19h-3.5z" fill="currentColor"/></svg>{ui.download_store}</a></div>
     <div class="hero-meta"><DbBadges databases={['oracle', 'postgresql']} label={ui.db_support} /><span>{ui.platforms}</span><span>{ui.open_source}</span></div>
     <Screenshot locale={locale} name="sql-workspace" alt={ui.hero_caption} caption={ui.hero_caption} priority />
   </section>
