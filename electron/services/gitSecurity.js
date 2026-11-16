@@ -39,7 +39,7 @@ function formatGitError(error, t = key => key) {
   const message = typeof error?.message === 'string' ? error.message : 'Git operation failed.';
   if (['security_git_transport_setup_failed', 'security_git_invalid_remote', 'security_git_remote_credentials'].includes(message)) return t(message);
   if (/(?:returned error:|HTTP code)\s*(?:301|302|303|307|308)\b|redirect(?:ion)? (?:is )?(?:prohibited|disabled)/i.test(message)) return t('security_git_redirect_refused');
-  if (/SSL certificate problem|certificate verify failed|SSL peer certificate.*not OK|CERT_TRUST_IS_UNTRUSTED_ROOT|SEC_E_UNTRUSTED_ROOT|CERT_E_CN_NO_MATCH|CERT_E_EXPIRED|server certificate verification failed|unable to get local issuer certificate|self[- ]signed certificate/i.test(message)) return t('security_git_certificate_rejected');
+  if (/SSL certificate problem|SSL certificate verification failed|certificate verify failed|SSL peer certificate.*not OK|CERT_TRUST_IS_UNTRUSTED_ROOT|SEC_E_UNTRUSTED_ROOT|CERT_E_CN_NO_MATCH|CERT_E_EXPIRED|server certificate verification failed|unable to get local issuer certificate|self[- ]signed certificate/i.test(message)) return t('security_git_certificate_rejected');
   return redactGitSecrets(message);
 }
 module.exports.formatGitError = formatGitError;

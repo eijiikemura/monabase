@@ -109,3 +109,15 @@ test('Secure Git factory keeps only its internal index environment, preserves CA
   await assert.rejects(createGitClient('/test', {}, () => ({ env() { return this; }, raw: async () => { throw new Error('DUMMY_PRIVATE_CONFIG'); } })), { message: 'security_git_transport_setup_failed' });
   await assert.rejects(createGitClient('/test', {}, () => ({ env() { return this; }, raw: async () => 'http.https://user:DUMMY_PRIVATE_CONFIG@example.invalid/.sslverify\0' })), { message: 'security_git_transport_setup_failed' });
 });
+
+
+test('Git certificate errors normalize OpenSSL, GnuTLS and Windows diagnostics without exposing remote details', () => {
+  for (const message of [
+    'SSL certificate problem: self-signed certificate',
+    'SSL certificate verification failed: certificate signer not trusted. (CAfile: /example/ca.crt)',
+    'server certificate verification failed. CAfile: none',
+    'CERT_TRUST_IS_UNTRUSTED_ROOT',
+    'SEC_E_UNTRUSTED_ROOT',
+  ]) assert.equal(formatGitError(new Error(message)), 'security_git_certificate_rejected');
+  assert.equal(formatGitError(new Error('fatal: repository not found')), 'fatal: repository not found');
+});

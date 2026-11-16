@@ -99,18 +99,22 @@ async function enterSql(text) {
 async function runSql(text, expected, statements = 1) { const before = completed; await enterSql(text); await click('Execute'); for (let i = 0; completed < before + statements && i < 400; i++) await pause(50); assert.equal(completed, before + statements, await js("document.body.innerText.slice(-1800)")); await wait(`document.body.textContent.includes(${JSON.stringify(expected)}) && ![...document.querySelectorAll('button')].find(b=>['Execute SQL','Analyze SQL execution plan'].includes(b.getAttribute('aria-label'))&&b.getBoundingClientRect().width>0).disabled`); }
 async function resizeSplit(selector) {
   await wait(`!!document.querySelector(${JSON.stringify(selector)})?.querySelector('[role=separator][aria-orientation=horizontal]')`);
-  const before = await js(`(()=>{const root=document.querySelector(${JSON.stringify(selector)});const bar=root.querySelector('[role=separator][aria-orientation=horizontal]');const rect=bar.getBoundingClientRect();return {y:rect.y+rect.height/2,x:rect.x+rect.width/2,upper:root.querySelector('[data-split-upper]').getBoundingClientRect().height,lower:root.querySelector('[data-split-lower]').getBoundingClientRect().height}})()`);
+  const before = await js(`(()=>{const root=document.querySelector(${JSON.stringify(selector)});const bar=root.querySelector('[role=separator][aria-orientation=horizontal]');const rect=bar.getBoundingClientRect();return {y:rect.y+rect.height/2,x:rect.x+rect.width/2,upper:root.querySelector('[data-split-upper]').getBoundingClientRect().height,lower:root.querySelector('[data-split-lower]').getBoundingClientRect().height,min:Number(bar.getAttribute('aria-valuemin')),max:Number(bar.getAttribute('aria-valuemax'))}})()`);
+  // Test a direction with actual available space on the current screen/font metrics.
+  const roomDown = before.max - before.upper, roomUp = before.upper - before.min;
+  const delta = roomDown >= 45 ? 45 : roomUp >= 45 ? -45 : roomDown > roomUp ? roomDown : -roomUp;
+  assert.ok(Math.abs(delta) >= 20, 'The split fixture needs room for a meaningful drag.');
   const completedBefore = completed;
   await js(`document.querySelector(${JSON.stringify(selector)}).querySelector('[role=separator][aria-orientation=horizontal]').dispatchEvent(new MouseEvent('mousedown',{button:0,bubbles:true,cancelable:true,clientX:${before.x},clientY:${before.y}}));true`);
   await wait(`document.querySelector(${JSON.stringify(selector)}).querySelector('[role=separator][aria-orientation=horizontal]').getAttribute('data-resizing')==='true'`);
-  await js(`window.dispatchEvent(new MouseEvent('mousemove',{clientY:${before.y + 45},clientX:${before.x},bubbles:true}));true`);
-  await wait(`document.querySelector(${JSON.stringify(selector)}).querySelector('[data-split-upper]').getBoundingClientRect().height>${before.upper + 35}`);
+  await js(`window.dispatchEvent(new MouseEvent('mousemove',{clientY:${before.y + delta},clientX:${before.x},bubbles:true}));true`);
+  await wait(`Math.abs(document.querySelector(${JSON.stringify(selector)}).querySelector('[data-split-upper]').getBoundingClientRect().height-${before.upper + delta})<3`);
   await js("window.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));true");
   await wait(`document.querySelector(${JSON.stringify(selector)}).querySelector('[role=separator][aria-orientation=horizontal]').getAttribute('data-resizing')==='false'`);
   const after = await js(`(()=>{const root=document.querySelector(${JSON.stringify(selector)});return {upper:root.querySelector('[data-split-upper]').getBoundingClientRect().height,lower:root.querySelector('[data-split-lower]').getBoundingClientRect().height}})()`);
-  assert.ok(after.lower < before.lower - 35);
-  await js(`document.querySelector(${JSON.stringify(selector)}).querySelector('[role=separator][aria-orientation=horizontal]').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true,cancelable:true}));true`);
-  await wait(`document.querySelector(${JSON.stringify(selector)}).querySelector('[data-split-upper]').getBoundingClientRect().height<${after.upper - 10}`);
+  assert.ok((after.lower - before.lower) * Math.sign(delta) < -15);
+  await js(`document.querySelector(${JSON.stringify(selector)}).querySelector('[role=separator][aria-orientation=horizontal]').dispatchEvent(new KeyboardEvent('keydown',{key:${JSON.stringify(delta > 0 ? 'ArrowUp' : 'ArrowDown')},bubbles:true,cancelable:true}));true`);
+  await wait(`(document.querySelector(${JSON.stringify(selector)}).querySelector('[data-split-upper]').getBoundingClientRect().height-${after.upper})*${Math.sign(delta)} < -10`);
   assert.equal(completed, completedBefore, 'Resizing must not execute SQL.');
   return js(`document.querySelector(${JSON.stringify(selector)}).querySelector('[data-split-upper]').getBoundingClientRect().height`);
 }
