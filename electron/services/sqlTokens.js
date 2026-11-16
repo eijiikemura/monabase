@@ -8,7 +8,7 @@ function scanSql(source, dialect = 'postgresql') {
   while (index < source.length) {
     const start = index;
     if (/\s/.test(source[index])) { index++; continue; }
-    if (source.startsWith('--', index)) {
+    if ((source.startsWith('--', index) && (dialect !== 'mysql' || !source[index + 2] || /\s/.test(source[index + 2]))) || (dialect === 'mysql' && source[index] === '#')) {
       const end = source.indexOf('\n', index);
       index = end < 0 ? source.length : end + 1;
       continue;
@@ -38,9 +38,9 @@ function scanSql(source, dialect = 'postgresql') {
       tokens.push({ kind: 'quoted', start, end: index, text: source.slice(start, index) });
       continue;
     }
-    if (source[index] === "'" || source[index] === '"') {
+    if (source[index] === "'" || source[index] === '"' || (dialect === 'mysql' && source[index] === '`')) {
       const quote = source[index++];
-      const escaped = dialect === 'postgresql' && quote === "'" && /[eE]/.test(source[start - 1] || '') && (start < 2 || !/[\p{L}\p{N}_$]/u.test(source[start - 2]));
+      const escaped = dialect === 'mysql' && quote !== '`' || dialect === 'postgresql' && quote === "'" && /[eE]/.test(source[start - 1] || '') && (start < 2 || !/[\p{L}\p{N}_$]/u.test(source[start - 2]));
       while (index < source.length) {
         if (escaped && source[index] === '\\') { index += 2; continue; }
         if (source[index] === quote) {

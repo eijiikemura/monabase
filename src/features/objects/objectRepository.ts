@@ -9,6 +9,7 @@ import { ipcRenderer } from "@/shared/api/desktop";
 export const OBJECT_PAGE_SIZE = 100;
 export const OBJECT_CATEGORIES = {
   oracle: ['TABLE', 'VIEW', 'MATERIALIZED VIEW', 'MATERIALIZED VIEW LOG', 'SEQUENCE', 'FUNCTION', 'PROCEDURE', 'PACKAGE', 'TRIGGER', 'DATABASE LINK', 'SYNONYM', 'INDEX', 'TYPE'],
+  mysql: ['TABLE', 'VIEW', 'FUNCTION', 'PROCEDURE', 'TRIGGER', 'INDEX'],
   postgresql: ['TABLE', 'VIEW', 'MATERIALIZED VIEW', 'SEQUENCE', 'FUNCTION', 'PROCEDURE', 'TRIGGER', 'INDEX', 'TYPE']
 } as const satisfies Record<DbType, readonly ObjectCategory[]>;
 
@@ -46,6 +47,11 @@ const required = (rows: DatabaseRow[]) => {
   return rows[0];
 };
 export async function listObjectSchemas(dbType: DbType): Promise<string[]> {
+  if (dbType === 'mysql') {
+    const result = await ipcRenderer.invoke('get-schemas');
+    if (!result.success) throw new Error(result.error);
+    return result.schemas.filter(name => !['mysql', 'sys', 'information_schema', 'performance_schema'].includes(name));
+  }
   const rows = await query(dbType === 'oracle'
     ? `SELECT USERNAME AS "name" FROM ALL_USERS WHERE ORACLE_MAINTAINED = 'N' ORDER BY USERNAME`
     : `SELECT nspname AS name FROM pg_namespace WHERE nspname NOT LIKE 'pg!_%' ESCAPE '!' AND nspname <> 'information_schema' ORDER BY nspname`);
@@ -56,6 +62,10 @@ export async function listObjects(options: {
   searchText: string; offset: number;
 }): Promise<DatabaseObject[]> {
   const { dbType, schema, category, searchText, offset } = options;
+  if (dbType === 'mysql') {
+    const { listMysqlObjects } = await import('./mysqlObjects');
+    return listMysqlObjects(schema, category, searchText, offset);
+  }
   if (!schema || !category) return [];
   if (!OBJECT_CATEGORIES[dbType].some(value => value === category) ||
       !Number.isSafeInteger(offset) || offset < 0) throw new Error('カテゴリまたはページの指定が不正です。');
@@ -250,6 +260,10 @@ async function postgresType(object: DatabaseObject, binds: Record<string, string
 
 export async function loadObjectReference(object: DatabaseObject): Promise<ObjectReference> {
   if (!OBJECT_CATEGORIES[object.dbType].some(category => category === object.category)) throw new Error('カテゴリの指定が不正です。');
+  if (object.dbType === 'mysql') {
+    const { loadMysqlReference } = await import('./mysqlObjects');
+    return loadMysqlReference(object);
+  }
   const reference = await (object.dbType === 'oracle' ? oracleReference(object) : postgresReference(object));
   if (!reference.definition.trim()) throw new Error('定義情報を取得できませんでした。');
   return reference;

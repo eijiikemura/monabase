@@ -38,7 +38,7 @@ function componentHarness(file, props, { dependencies = {}, globals = {}, name =
     if (Array.isArray(node)) { node.forEach(child => walk(child, found)); return found; }
     if (!node || typeof node !== 'object' || !node.props) return found;
     found.push(node); walk(node.children, found);
-    for (const key of ['action', 'control', 'label', 'title', 'helperText']) walk(node.props[key], found);
+    for (const key of ['action', 'control', 'label', 'title', 'helperText', 'upper', 'lower']) walk(node.props[key], found);
     return found;
   }
   const nodes = () => walk(tree);

@@ -15,9 +15,10 @@ function connectionScopes(config = {}) {
     config.sshAuthType || 'password', config.sshAuthType === 'key' ? config.sshKeyFile || '' : ''];
   return {
     sshPassword: JSON.stringify(ssh),
-    password: JSON.stringify([dbType, host(config.host), port(config.port, dbType === 'oracle' ? 1521 : 5432),
+    password: JSON.stringify([dbType, host(config.host), port(config.port, dbType === 'oracle' ? 1521 : dbType === 'mysql' ? 3306 : 5432),
       config.database || '', config.user || '', !!config.useOsAuth, !!config.useSysdba,
-      config.useSshTunnel ? ssh : null, config.pgSslMode || 'disable', config.pgSslCaFile || '', config.pgSslServerName || ''])
+      config.useSshTunnel ? ssh : null, dbType === 'mysql' ? config.mysqlSslMode || 'disable' : config.pgSslMode || 'disable',
+      dbType === 'mysql' ? config.mysqlSslCaFile || '' : config.pgSslCaFile || '', dbType === 'mysql' ? '' : config.pgSslServerName || ''])
   };
 }
 
@@ -50,6 +51,8 @@ function createConnectionStore(file, vault) {
     if (connection.environmentColor !== undefined && !['neutral','blue','green','orange','red','purple'].includes(connection.environmentColor)) throw Error('Invalid environment color.');
     if (connection.pgSslMode !== undefined && !['disable', 'verify-full'].includes(connection.pgSslMode)) throw new Error('Invalid TLS mode.');
     for (const field of ['pgSslCaFile', 'pgSslServerName']) if (connection[field] !== undefined && typeof connection[field] !== 'string') throw new Error('Invalid TLS settings.');
+    if (connection.mysqlSslMode !== undefined && !['disable', 'verify-full'].includes(connection.mysqlSslMode)) throw new Error('Invalid MySQL TLS mode.');
+    if (connection.mysqlSslCaFile !== undefined && typeof connection.mysqlSslCaFile !== 'string') throw new Error('Invalid MySQL TLS settings.');
     const records = readRecords();
     const index = originalName ? records.findIndex(record => record.name === originalName) : -1;
     if (records.some((record, position) => position !== index && record.name === connection.name)) {

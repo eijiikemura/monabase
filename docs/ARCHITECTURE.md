@@ -7,7 +7,7 @@ flowchart LR
   UI[React features] --> Client[Shared desktop client]
   Client --> Preload[Sandboxed preload allowlist]
   Preload --> IPC[Sender-checked IPC handlers]
-  IPC --> DB[Oracle / PostgreSQL clients]
+  IPC --> DB[Oracle / PostgreSQL / MySQL clients]
   IPC --> Services[Credentials / settings / Git / AI]
 ```
 
@@ -1810,3 +1810,306 @@ settings with consumers. Offsets support quarter-hour OS zones within Oracle's
 preferences remain intact. Settings tests use temporary stores, with dedicated
 integration scenarios verifying connection-time application and transaction
 preservation; see [testing](TESTING.md#settings-persistence-and-behavior).
+
+## MySQL initial workspace
+
+`src/features/mysql/` is lazy-loaded separately and exposes SQL/transactions, table management and shared Git/AI integration. `electron/mysql/` owns a serialized main connection, a read-only metadata connection and a cancellation connection. Native MySQL transaction flags propagate through the existing SQL/commit/rollback IPC as optional `transactionStatus`/`autocommit` fields; Oracle/PostgreSQL boolean notifications retain their existing behavior. Unsupported database feature IPC is rejected before routing to other database adapters. See [MySQL scope and tests](MYSQL.md).
+
+MySQL source definitions use `features/objects/mysqlObjects.ts` through the shared object repository. The existing Git workspace/history and AI review screens are reused, with MYSQL paths and MySQL-scoped source conversations. `features/mysql/SourceWindow.tsx` edits local drafts; `sourceIdentity.ts` rejects AI changes to another category/schema/name. No automatic DROP/CREATE, compilation or AI execution is added. Session settings for AI are captured at connection initialization and combined with the tracked current database, preserving MySQL ROW_COUNT and pending work.
+
+`features/mysql/table/` keeps the MySQL table SQL model, background repository, operation controller and six display components separate. Identifiers are backtick-quoted, user values are bound, complete primary keys and original images guard row updates, and DDL uses an explicit preview/confirmation workflow. The main connection retains pending DML; metadata and embedded ER discovery use only background reads. The other database table implementations are unchanged.
+
+ER table display is isolated in `features/er/TableNode.tsx`. The automatic/custom ER window and MySQL's embedded ER import that display component directly. A display component must not import its containing window: doing so can create an ES-module initialization cycle and prevent a DB workspace from loading in development, even when a production bundle succeeds.
+
+MySQL sidebar table navigation lives in `useSidebarTables.ts` (per-database cached 100-item pages, guarded searches and refresh events). `sidebarTableActions.ts` builds native table/create SQL, `SidebarTableDialog.tsx` previews mutations, `CreateTableWindow.tsx` edits new definitions, and `sidebarDataTransfer.ts` uses the main connection for import/materialized export. Metadata/listing stays on execute-sql-bg. Oracle/PostgreSQL sidebar implementations and common transfer dialogs are unchanged.
+
+### MySQL SQL-window execution and tuning
+
+`features/mysql/useSqlExecution.ts` owns sequential single-statement IPC batches, selection-only execution, stop-on-error/cancellation, main transaction-state propagation, private execution and the shared SQL history adapter. The SQL screen uses `features/sql/SqlWindowBottom.tsx` and pane controls for results/logs/history, inspection/export/transpose and editor/result resizing. History opens a new SQL tab through the shared open-sql-tab event; MySQL implements that event without replacing the existing editor.
+
+The common SQL scanner and privacy boundary accept the MySQL default quoting mode (backticks, backslash escapes, hash comments and whitespace-sensitive dash comments). The renderer splits scripts; mysql2 multipleStatements remains disabled. Unterminated quotes/comments and executable comments are rejected before starting a batch. The MySQL driver implements the dedicated explain-sql path with estimated EXPLAIN FORMAT=JSON for SELECT, preserves pending work and reports its native main state on both success and failure.
+
+`features/mysql/sqlPlan.ts` interprets nested JSON plans and builds tuning requests from an immutable analyzed statement/database/bind snapshot. Aliases in plans never become guessed table identities. SQL candidates are catalog-checked through the background connection; DDL, statistics and indexes are included without reading application rows. CTE references remain unresolved unless they are actual base-table references. Bind values and arbitrary plan expressions are masked by default, retaining structural identifiers and numeric estimates. Integrated AI still requires the common preview/send action; without an AI configuration the request can be saved for an external chat. No generated SQL is automatically applied and no paid AI requests occur in normal tests.
+
+### MySQL table header/source alignment
+
+MySQL TableDataTab reuses `decorateTableResultColumns` with applied conditions. Its column-header handler delegates to `useMysqlTable.sortByColumn`, which preserves filter inputs, sets one ascending/descending sort, resets the page and runs a main-connection search. Draft condition edits do not change current-result decorations. Grid-native column menus/filtering are disabled; transposed, unsupported, busy and unknown-state headers do not start searches.
+
+`features/mysql/table/TableSourceTab.tsx` loads the actual table definition and directly renders the common VersionControlTab with MYSQL/TABLE identity. Table windows no longer wrap an editable SourceWindow/AI draft editor around the Git viewer. Dedicated view/routine/trigger source editors remain unchanged. Explicit DDL attempts invalidate the table-source cache with reload-source; hidden source tabs defer reloading until activation. Versioned reads ignore old responses, retrieval errors expose Retry and prevent recording an empty/stale definition.
+
+### MySQL vertical pane composition
+
+`features/mysql/VerticalSplit.tsx` reuses `useSqlPaneLayout` for container measurement, mouse drag limits, keyboard adjustment and equalization. The shared hook accepts an optional initial height; existing Oracle/PostgreSQL SQL windows retain the 260px default. MySQL table Data uses 250px, Structure 300px and Statistics 200px, matching Oracle's initial table heights. MySQL SQL already uses the same hook; its visible divider and 80px upper minimum now match that behavior.
+
+TableMetadataTab uses bounded GridViewport areas for the column list and both statistics grids, with independent scrolling for the lower Structure sections. TableWindow retains visited metadata instances and passes an active flag so their heights persist while hidden grids defer rendering. Source/Git continues to use the common VersionControlTab divider. No DB query, transaction or settings write is triggered by resizing.
+
+### MySQL pending-work state
+
+Native `transactionStatus=active` includes read transactions, so AppMysql uses the distinct `hasUncommittedTx` flag for toolbar emphasis. `MysqlClient.getMainTransactionState()` returns native pending write/locking state; native active/idle/unknown and autocommit stay available through getTransactionDetails. No SQL-string heuristics or automatic transaction completion are involved.
+
+The pinned mysql2 adapter in `electron/mysql/transactionState.js` enables CLIENT_SESSION_TRACK and CLIENT_DEPRECATE_EOF before the main handshake. mysql2 3.24.6's text-query state machine expects a metadata EOF and a short row EOF, so the adapter skips that absent metadata EOF and routes final OK packets through the normal done/end path. Packet buffers and offsets are unchanged, and the large length-coded-row case is explicitly excluded. Native tracker type 5 supplies read/write/locking state. The main session enables transaction-info STATE; background sessions stay unchanged. This also detects writes made by SELECT functions without issuing a diagnostic query that would corrupt ROW_COUNT. Unknown/malformed state remains unknown and blocks unsafe continuation. Driver updates must revalidate this version-pinned adapter.
+
+MySQL data generation uses the shared Oracle `DataGeneratorPanel`, row generator and batch lifecycle with an explicit MySQL adapter under `src/features/mysql/generator/`. The adapter preserves native column metadata and constructs bound multi-row INSERTs; Oracle/PostgreSQL SQL literal builders remain separate. Generation propagates native main-session transaction details without committing or rolling back. Metadata stays on background IPC; AI parent-key samples use main-session reads. JSON settings and AI responses share atomic rule validation and target/revision guards. AI requests use the existing sidebar/send-preview pipeline; applying rules never executes inserts.
+
+Oracle and MySQL query builders share `query-builder/QueryBuilderPanel.tsx` and `useQueryBuilderController.ts`. Oracle's existing window/hook are adapters retaining Oracle dictionary queries and DDL extraction. `mysql/builder/` supplies native table/view column/comment and SHOW CREATE metadata. `queryBuilderModel` stores canonical object identities and emits dialect-specific identifier quoting; JSON documents validate their database type. AI generation/review uses the same dialect and revalidates metadata before explicit adoption. Main-session execution forwards native transaction details; background metadata never replaces pending-state feedback. MySQL workspace busy ownership blocks other builder tabs while one executes.
+
+The Oracle/MySQL cross-tab view is `cross-tab/CrossTabPanel.tsx`; shared props/types/colors live in `crossTabTypes.ts`. Oracle's existing controller retains its SQL. `mysql/bi/crossTabRepository.ts` supplies background table/view/column reads; `crossTabModel.ts` validates the MySQL document, builds bound filters/casts/grouping and discovery/conditional aggregate SQL, and formats exact decimal text. `useCrossTabWindow.ts` guards async work/imports and propagates only main-session transaction details. Technical pivot aliases and symbol row identity prevent user-category collisions. MySQL mounts result grids/charts only on their active tab, keeping retained hidden panes from measuring zero-sized grids/charts.
+
+MySQL standalone ER diagrams reuse `ErDiagramWindow`, `useErDiagramWindow`, `useCustomErDiagram` and the automatic/custom views. Existing boolean database arguments remain compatible; the explicit mysql discriminator selects `mysql/er/erMetadata.ts`, never an Oracle/PostgreSQL SQL fallback. Native metadata is read in bound batches with complete-read failure handling, schema-qualified identities and native type text. Custom ER IPC already accepts safe DB folder segments; the renderer uses MYSQL for every save/list/load/history/commit/delete request. Oracle/PostgreSQL folders and version-2 document semantics are unchanged. No new IPC channels or dependencies were needed.
+
+
+MySQL indexes use `mysql/index/` for the Oracle-style edit/statistics/source UI, reviewed native DDL and definition/dependency reads. Identity is `(database, table, index)` throughout catalog results, sidebar caches and workspace tabs. The table/index sidebar cache shares pagination and stale-response handling while keeping category state independent. Index source clauses are extracted from trusted SHOW CREATE TABLE output without approximating functional keys or options. Mutations reread the definition/dependency fingerprint before one main-session statement; native feedback controls pending indicators. PRIMARY and possible FK dependencies are protected; rename and visibility are separate native operations. No Git index source format or new IPC is added. The shared IndexTablePicker only gains the explicit MySQL database type.
+
+
+MySQL views use `mysql/view/` for the Oracle-style four-tab window and independent sidebar category. `viewRepository.ts` reads native SHOW CREATE source, settings/columns and VIEW_TABLE_USAGE dependencies through background IPC; `viewModel.ts` validates exactly one matching CREATE VIEW header, preserves MySQL security/algorithm/check options and explicitly qualifies its target. The editor reviews/revalidates DDL and selects the target database on the main connection, then refreshes native source/data and records actual DB source with the shared MYSQL/VIEW Git service. The data pane reuses the existing table controller/view in an explicitly readonly mode with mutation/import controls hidden; filtered exports materialize one main-session snapshot. The SQL policy permits native DEFINER/SQL SECURITY only inside a recognized view header and retains its other restrictions. Oracle/PostgreSQL view controllers and SQL are unchanged.
+
+
+MySQL trigger authoring uses `mysql/trigger/`, plus dedicated `get-mysql-trigger`/`mutate-mysql-trigger` channels in the preload/typed contract/database router. `mysql/triggerDefinition.js` validates native row-trigger bodies without enabling multi-statement SQL. `triggerService.js` reads source and peer order on background IPC, serializes the entire mutation on the native main queue, rechecks the fingerprint, preserves creation settings and performs only reviewed create/drop/replace/recovery operations. Recovery snapshots are bounded, expire and are scoped to the connection. Partial/unknown outcomes are explicit, never automatically retried; native transaction state alone updates the UI. Table metadata responds to trigger changes via reload-statistics, and trigger links open the same tab identity as sidebar entries. Git records match the common native-source metadata format. Oracle/PostgreSQL trigger/trace SQL and settings are unchanged.
+
+
+### MySQL procedures
+
+`features/mysql/procedure` owns the Oracle-style procedure tree and source/Git/information window, argument panel, resizable source/results layout and guarded workflow. `useMysqlProcedure` keeps local drafts separate from native Git source, fingerprints execution metadata, and permits only one attempt per reviewed DDL operation. `useMysqlEditorAi` accepts an explicit new-object flag so new routines use coding identity validation without fetching nonexistent catalog references.
+
+`electron/mysql/procedureDefinition.js` validates one native CREATE PROCEDURE header/body. The shared trigger lexical/compound validator keeps trigger restrictions by default; procedure mode also allows SELECT and native transaction statements. `procedureService.js` reads background metadata, serializes reviewed main-session DROP/CREATE, preserves definer/mode/charset, retains bounded explicit recovery, and executes CALL through execute-stored. Privilege/definer administration is not added. Preexisting routines altering protected session settings invalidate the main connection.
+
+The MySQL result collector separates CALL result frames and enforces aggregate row/byte/set limits. The pinned transaction status adapter honors SERVER_MORE_RESULTS_EXISTS before completing a tracked result, keeping both multiple results and native write-state tracking. Generated OUT variables are cleared without committing or replaying business SQL. Other database stored execution remains on its existing implementation.
+
+
+### MySQL stored functions
+
+`features/mysql/function/FunctionSidebarCategory.tsx` provides an independent FUNCTION tree/cache. `FunctionWindow.tsx` selects the shared routine window with kind=FUNCTION. The existing procedure layout/controller defaults remain PROCEDURE; kind selects creation templates, labels, get/mutate IPC, Git identity, return-type display and execute-stored identity. New routines retain the shared AI new-object protections.
+
+`mysql/procedureDefinition.js` and `procedureService.js` now handle the two native stored-routine kinds, with a fixed internal allowlist. Function headers additionally parse RETURNS types/charset/collation and require RETURN. Their body-validation mode retains trigger-level transaction restrictions; procedures retain their existing native transaction statements. Metadata excludes ordinal-zero return rows from parameters and exposes the native return type separately. The native client getFunction/mutateFunction methods and typed get/mutate-mysql-function IPC use FUNCTION explicitly; the renderer cannot choose a different backend kind through a mutation payload.
+
+Execution shares main-queue locking, fresh fingerprints, input escaping, output limits, cancellation and protected-session validation. A function runs SELECT schema.function(args), returns a typed scalar, and never uses CALL or OUT variables. Recovery snapshots are scoped to both exact target identity and routine kind. Read-only execution is blocked because a stored function can write data. Oracle/PostgreSQL routing and the MySQL procedure default remain unchanged.
+
+
+### MySQL AUTO_INCREMENT settings
+
+The table Structure tab includes a compact auto-increment section in its lower pane. `tableModel.ts` discovers the auto column, calculates exact integer limits, validates positive counter text and parses only the top-level AUTO_INCREMENT table option from native SHOW CREATE. Quoted defaults/comments and column attributes do not become counter values; version comments in native metadata are treated as opaque text, never executed.
+
+`tableRepository.ts` obtains normal background metadata and, only for an auto-increment table, fetches SHOW CREATE through execute-sql-bg to replace the potentially cached TABLES.AUTO_INCREMENT value. It does not query the main connection or modify information_schema_stats_expiry. `tableDdl.ts` adds one bounded AUTO_INCREMENT operation to the existing ALTER builder. `TableDdlDialog` requires preview and exact-table-name confirmation and prevents resend after an attempt. Successful DDL reloads the live metadata; an applied-DDL/failed-refresh error is explicit, and the counter control stays disabled until refresh succeeds. Source invalidation and native transaction state continue through the existing table workflow.
+
+The TypeScript test loader now resolves unmocked static relative internal TS/TSX imports (dynamic imports stay lazy), just as it already resolved internal aliases. Explicit stubs take priority and external dependencies remain strict boundaries. This allows the metadata repository to use its neighboring model without adding unrelated mocks to every catalog/ER/SQL test.
+
+
+### MySQL table column structure
+
+`tableRepository.ts` retrieves character lengths, numeric precision/scale and temporal fractional precision from INFORMATION_SCHEMA.COLUMNS. `tableStructureModel.ts` maps these independently of COLUMN_TYPE, normalizes blank non-PK cells, and groups unique-index positions. TableMetadataTab initially collapses CHECK and Trigger grids while retaining the existing vertical split.
+
+`ColumnEditorDialog.tsx` owns a fixed opening metadata snapshot, background SHOW CREATE loading, edits, preview invalidation, exact-name confirmation and a one-attempt execution guard. `columnDefinition.ts` parses the native column clause and replaces only requested name/type/null/default/comment spans. Values are bound; identifiers are quoted; types/dimensions are validated. Native INVISIBLE version comments become the equivalent direct 8.4 attribute outside quoted values, so executable-comment guards remain enabled. Generated formulas, automatic attributes and unchanged native type spelling are retained. A fresh SHOW CREATE comparison and catalog reload precede the main-connection ALTER through the existing controller, native transaction-state handling, refresh and source/sidebar invalidation. Failed or unknown attempts are not automatically repeated.
+
+
+### MySQL default SQL schema
+
+SqlWindow uses the immutable connection database as its execution, plan and AI default and has no schema selector. AppMysql retains this identity for new SQL tabs, including sidebar/history entry points; source/object windows retain their own database identity. The sidebar still lists accessible non-system databases and emits fully qualified SQL for their objects. Every SQL/EXPLAIN request supplies the connection database explicitly, so another operation selecting a different main-session database cannot silently retarget a later unqualified SQL query. The driver’s native transaction tracking and qualified object repositories are unchanged.
+
+
+### MySQL CHECK constraint editor
+
+`constraint/checkModel.ts` validates scalar CHECK input, extracts one named native CHECK clause and builds a single qualified ALTER for add, enforcement, rename or delete. `checkRepository.ts` reads exact table metadata and SHOW CREATE over execute-sql-bg, preserving the native expression and deriving an enforcement/column-definition fingerprint. `useMysqlCheck.ts` owns read/retry, immutable target identity, read-only existing conditions, previews, fresh-definition checks, one-attempt guards and main execute-sql transaction feedback. `CheckConstraintWindow.tsx` provides Oracle-style edit/source tabs, SQL copy and exact-name confirmation. AppMysql routes table callbacks into dedicated CHECK tabs without expanding the shared object-category/IPC contract. Name changes update tab identity; deletes close it; parent-table deletion closes its CHECK tabs. Existing source/statistics/transaction notifications refresh the parent table. No new dependency or Oracle/PostgreSQL implementation changes are required.
+
+### MySQL DBA account management
+
+`shared/types/mysqlUserRoleTypes.ts` defines account, snapshot/detail, masked review and execution contracts. The list/get/review/execute-mysql-account channels are allowlisted in preload and registered as MySQL-only IPC. The service is loaded only when a MySQL account request is made. Only execution reserves the SQL batch/main queue and returns native transaction status. Read failures and permission scope are separate from main-session state.
+
+`electron/mysql/userRoleService.js` obtains bounded background metadata without password hashes. Missing system-table privileges produce an explicitly restricted self-only view; unrelated failures remain failures. Native SHOW GRANTS FOR is a fixed, safely quoted metadata command serialized on the background queue, without weakening the generic SQL read-only policy. Administration never uses SHOW CREATE USER. Exact user/host identities, known administrative privileges along role paths, self/internal protection and DEFINER visibility determine available operations. Role/user classification is not inferred from lock status.
+
+The service validates a fixed operation structure and allowlisted ordinary privileges. A masked review stores an immutable copy, fingerprint, main connection ID, five-minute expiry and one-use token. Execute consumes it, rereads authoritative metadata, verifies exact confirmation and acknowledgement, inserts the password only into the transient native command, and runs one account statement on the main queue. Credential failures expose only stable error keys and safe error codes. Unknown results preserve unknown transaction state; no command is automatically resent. Password inputs never enter previews, SQL history, persistent logs or connection settings.
+
+`mysql/dba/useUserRoleTab.ts` owns stale-response guards, account selection, password clearing, scope/capability checks and post-write refresh. Hidden selections are cleared; creation remains available while unrelated selected-account details load. `UserRoleTab.tsx` reuses the DBA split and Oracle-style list/detail/dialog design. MySQL resource limits replace Oracle-only tablespace quotas. AppMysql exposes one reusable User Settings tab through DBA and command search and blocks cancellation/closure during mutation.
+
+Failed MySQL connection initialization now destroys its incomplete sockets directly. A rejected authentication handshake can leave mysql2's graceful end callback unresolved; no application work is accepted before connect resolves, so immediate disposal on that failure path is safe. Normal connected-session shutdown and transaction behavior are unchanged. Regression tests verify prompt rejection and subsequent reconnection.
+
+### MySQL object privileges
+
+`src/features/mysql/dba/ObjectPrivilegeTab.tsx` and `useObjectPrivilegeTab.ts` implement the DBA matrix with the common ObjectPickerDialog. `src/shared/types/mysqlObjectPrivilegeTypes.ts` defines targets, grants and review/execution DTOs. The three `get/review/execute-mysql-object-privileges` channels are explicitly allowed in preload and typed in the desktop contract. `electron/mysql/objectPrivileges.js` loads lazily through database IPC, reads catalogs on background connections and generates validated single-object SQL. Mutations reserve the main SQL batch, validate a connection-bound one-use review, execute on the main connection and return only actual monitored transaction state. Reads do not overwrite the transaction indicator. Protected/partial/column/GRANT OPTION states cannot be bypassed from the renderer.
+
+### MySQL sessions
+
+`src/features/mysql/dba/SessionTab.tsx` and `useSessionTab.ts` implement the DBA list/detail workflow using the shared `useDbaSplit`. `src/shared/types/mysqlSessionTypes.ts` defines snapshot/detail/review/outcome DTOs. Four explicit preload/desktop-contract channels (`list-mysql-sessions`, `get-mysql-session-detail`, `review-mysql-session`, `manage-mysql-session`) lazily route to `electron/mysql/sessionService.js`. Background catalog reads never return main-session transaction flags. KILL is generated solely from a validated numeric connection ID, is sent once on the control connection, and never passes through arbitrary renderer SQL or the main transaction queue. Review tokens bind server/thread/connection/execution and protect internal/admin/self connections; fallback metadata is read-only. Current and historical SQL go through the existing MySQL SQL privacy inspector before IPC.
+
+### MySQL locks
+
+`src/features/mysql/dba/LockTab.tsx` / `useLockTab.ts` implement the Oracle-style lock grid, blocker navigation and verified SQL details. `src/shared/types/mysqlLockTypes.ts` defines the resource/edge/detail/review DTOs. Four explicit MySQL-only channels (`list-mysql-locks`, `get-mysql-lock-detail`, `review-mysql-lock`, `manage-mysql-lock`) route to `electron/mysql/lockService.js`. It assembles InnoDB locks and multiple wait edges from background metadata and joins the existing session snapshot by internal thread ID. Lock-scoped one-use reviews revalidate resource/transaction/relationships before delegating to Session Management's private review and dedicated control executor; underlying tokens are never exposed to the renderer. Reads and control outcomes do not return or overwrite main transaction flags. Permission failures, inconsistent relationships, unmapped identities and payload/catalog limits fail closed.
+
+
+### MySQL read-only storage metadata
+
+`AppMysql` routes the DBA menu and palette to `dba/TablespaceTab` and its
+`useTablespaceTab` controller. The shared DBA split supports pointer and keyboard
+resizing. Typed/preload-allowed `list-mysql-tablespaces` /
+`get-mysql-tablespace-detail` channels reach `mysql/tablespaceService` only on a
+MySQL connection. Every native query uses the background connection; no DDL,
+filesystem access or main transaction-state update occurs. IDs/byte counts stay
+exact strings, absent fields stay null, privilege/size failures are explicit and
+stale detail replies are discarded. See [MySQL storage](MYSQL.md#read-only-tablespaces-and-storage-mysql-84).
+
+
+### MySQL SSH and database information
+
+`mysql/sshTransport` reuses `connectVerifiedSsh` and the bounded credential
+reader. `MysqlClient` retains its original TLS hostname while supplying one SSH
+channel per main/background/control connection. The host-verifier factory is
+injected by the existing connect-db handler. Connection loss invalidates state;
+cleanup closes partial channels without SQL replay. Oracle/PostgreSQL tunnel
+implementations are unchanged.
+
+`dba/DatabaseTab` and `useDatabaseTab` receive visible DB settings and object
+catalogs via two typed/preload-approved, MySQL-only read channels implemented by
+`mysql/databaseService`. All queries run on the background connection. The UI
+shares the DBA splitter and export controls, labels visibility/estimates and
+provides no database mutation or permission-changing actions.
+
+
+### MySQL scalar trace recorder
+
+`mysql/traceProgram` tokenizes a restricted scalar routine grammar before any
+DDL and emits an instrumented copy with exact original-source line markers,
+statement phases, scalar snapshots and nested WHILE counters. `mysql/traceService`
+checks the saved source/fingerprint, reserves the main queue and requires no
+pending writes, then executes on a separate SSH/TLS-aware worker. The original
+routine and main transaction are preserved. Cleanup failures are explicit.
+
+Existing execute-trace/get-trace-data/get-trace-for-ai/delete-trace-db channels
+now accept MySQL with the same sender and connection checks. Common trace JSON
+persistence supports a mysql namespace and atomic full-run saves. Oracle and
+PostgreSQL execution adapters are unchanged. PostgreSQL's pure replay hook moved
+to `features/stored/useTraceSimulator`; its old path re-exports it and MySQL uses
+the same UI replay logic. Oracle retains its existing adapter.
+
+MySQL `procedure/TracePanel` uses `TraceDebugArea` and `useAiTraceDebug`, including
+source escaping, saved evidence preview, debug identity and executed-versus-current
+source distinctions. It exposes incomplete recording and supports functions and
+procedures. A separate trigger adapter below extends this restricted recorder. The isolated-SQL extension below adds a validated subset of table SQL, cursors
+and handlers. Other routine calls and unsupported SQL remain rejected.
+
+
+### MySQL isolated native trigger recorder
+
+`mysql/triggerTraceService` resolves exact trigger/table metadata on background
+connections through `get-mysql-trigger-trace-inputs`. The typed preload contract
+returns column rules and table/trigger fingerprints without reading table rows.
+`execute-trace` dispatches TRIGGER to this adapter while preserving routine and
+Oracle/PostgreSQL behavior. It reserves the main queue, rejects read-only,
+pending/unknown transactions and stale source, then opens the existing SSH/TLS
+worker. CREATE TABLE LIKE and an instrumented CREATE TRIGGER precede the isolated
+DML transaction. For UPDATE/DELETE a provided OLD row is seeded without firing
+the selected event. Parameter-bound INSERT/UPDATE/DELETE fire only the selected
+trigger on the copy. A final rollback, empty-copy check and exact owned-object
+cleanup precede atomic persistence. Uncertain setup/cleanup is never retried.
+
+`traceProgram` validates native NEW/OLD references using supported, non-generated
+column metadata, rejects writes to OLD or NEW outside BEFORE INSERT/UPDATE,
+and snapshots row references alongside locals. Saved source lines refer to the
+original ACTION_STATEMENT body. `trigger_outcome` contains exact-text rows after
+the event; original data, peers and foreign keys are excluded from simulation.
+`mysql/trigger/TriggerTracePanel` provides JSON row inputs and shares the replay,
+breakpoints, source escaping and AI evidence preview with the routine recorder.
+AI instructions explicitly identify the isolated-trigger scope, recorded phases,
+real evidence IDs, executed source and incomplete-run limitations.
+
+
+### MySQL extended scalar controls and reviewed definition files
+
+`mysql/traceProgram` preserves native simple/searched CASE, labelled WHILE/LOOP/
+REPEAT, LEAVE and ITERATE, with lexical loop-label scopes and unique recorded
+iteration counters. Labelled outer BEGIN exits are supported. Control jumps have
+before-jump snapshots; selected branches retain branch-entry snapshots. Native
+CASE selector/NULL/error semantics are not replaced by JavaScript evaluation.
+All paths, including endless LOOP/ITERATE, remain bounded by snapshot limits.
+The isolated SQL extension below adds supported table statements, cursors and handlers; other routine calls remain excluded.
+
+`mysql/databaseManagement` resolves live charset/collation choices and produces
+one-use connection-scoped CREATE/ALTER DATABASE review tickets. It protects system
+databases, requires an idle writable main connection, checks the original defaults
+again and verifies the acknowledged change through the background catalog. Unknown
+DDL delivery invalidates the connection; known-applied refresh failure stays applied.
+`DatabaseEditorDialog` adds these actions to the existing database information tab.
+A successful change refreshes known database choices in the current MySQL workspace.
+
+`mysql/definitionImport` parses bounded definition-only SQL files and client
+DELIMITER directives without changing ordinary SQL execution or enabling driver
+multi-statements. `definitionImportService` validates all targets at review and
+before applying, then holds the main queue while reusing routine/trigger mutation
+services. The services' internal alreadyQueued option avoids a second queue wait;
+original connection identity and existing recovery snapshots are preserved. Only
+server-owned tickets can supply executable reviewed definitions. Failures stop the
+batch and retain stage/recovery information without a transaction-wide undo claim.
+`DefinitionImportDialog` exposes SQL preview, explicit apply, original-definition
+recovery and optional Git snapshots from successful native definitions. It does not
+run the imported bodies or contact AI. Typed preload channels cover both features.
+
+
+### MySQL typed binds, routine references and isolated SQL traces
+
+`mysql/sqlBindings.ts` detects actual placeholders through the shared lexer,
+retains exact decimal text, validates configured temporal inputs and casts only
+number/date placeholders in submitted SQL. `SqlBindPanel` replaces JSON editing
+with per-variable types/values/NULL. Execution resolves only the selected SQL's
+bindings; history retains the original text, while explain snapshots use the exact
+casted SQL. Empty text and NULL remain distinct.
+
+`mysql/routineDependencies` uses saved-source fingerprints and background catalog
+reads. Confirmed view-to-function catalog edges and source-inferred candidates
+carry separate evidence labels; unreadable definitions and bounded scans remain
+explicitly partial. `RoutineDependencyPanel` routes related objects through the
+validated MySQL workspace open-object event, preserving normal tab identities.
+It does not change the main transaction.
+
+`mysql/traceInputs` dry-compiles the saved routine/trigger with background-only
+column metadata. `TraceFixtureEditor` exposes explicit JSON fixtures and reviewed
+table fingerprints through the typed `get-mysql-trace-inputs` IPC.
+`mysql/traceTables` accepts InnoDB base tables, fingerprints SHOW CREATE, validates
+bounded literal fixture values and owns empty CREATE TABLE LIKE copies. It never
+copies existing rows or foreign keys/peer triggers. `mysql/traceSql` rebuilds only
+its supported single-table statement grammar against these owned copies;
+unvalidated aliases, qualified functions, SQL structural tokens in scalar
+expressions, joins/subqueries and dynamic SQL cannot escape to original tables.
+
+`traceProgram` keeps native cursors and handler declarations. Handler snapshots
+retain runtime caller loop paths; SIGNAL/RESIGNAL and missing-function-RETURN
+semantics remain native. A generated outer run block makes step/byte limits
+unrecoverable by user handlers. SQL-enabled workers seed fixture rows and run
+inside a writable transaction limited to the copies; scalar-only workers remain
+read-only. Both recorders revalidate source/table fingerprints, roll back, confirm
+empty copies and drop only acknowledged owned objects before saving evidence.
+Uncertain creation/cleanup is reported with generated names and never retried.
+Saved records/AI previews include fixture data, phases and isolated scope;
+production integrations and original-table state are not inferred from them.
+
+
+### MySQL editor navigation and nested trace scopes
+
+`mysql/mysqlEditor.ts` contains bounded, local-only declaration completion and
+validated error-line mapping. `useMysqlEditorExtensions` adds parameter/local and
+builtin candidates to the MySQL dialect and installs a linter tied to an exact
+failed-source snapshot. CodeMirror's completion context suppresses custom
+suggestions in comments/strings. No catalog preload or new dependency is needed.
+The existing procedure/function/trigger windows share this hook.
+
+`mysqlClient` attaches a structured `mysqlErrorLine` only to native ER_PARSE_ERROR
+messages with a trailing positive line. The execution IPC exposes that optional
+field in the typed contract. `useSqlExecution` maps each statement/selection to its
+original document offset, skips private/unreliable diagnostics and stores the
+exact source. SQL-window error-log navigation and lint refuse mismatching edited
+source; execution plans omit locations because their SQL is rewritten.
+
+`mysql/traceProgram` now maintains lexical declaration scopes and restores
+variables/cursors at block exit. Native variable identifiers remain unchanged;
+only evidence keys get a deterministic `B<number>.name` prefix for nested locals.
+Snapshots expose the innermost visible declaration and preserve per-key types.
+Handlers retain MySQL scope selection and native EXIT/CONTINUE/RESIGNAL behavior.
+Each handler saves its runtime origin path separately, so a handler-local loop
+calling another handler retains both caller and inner-loop iteration identities.
+The limit flag is checked before every snapshot, including handler entry, so an
+outer handler cannot swallow a limit from a nested handler and resume recording.
+Total variables/cursors and nested scopes are bounded. The isolated-table policy,
+source/DDL fingerprints, worker rollback and owned-copy cleanup are unchanged.
+
+The MySQL trace compiler also accepts a procedure whose complete body is one SET
+statement, including a saved body without a trailing semicolon. This is separate
+from compound statements: assignment still resolves only declared locals or
+parameters, and external user variables/session changes remain refused. The
+procedure niche suite checks this path against native INOUT execution.

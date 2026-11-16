@@ -12,7 +12,7 @@ function clampWidth(value: number, panel: Panel, viewport: number) {
 }
 
 // Store display preferences only, independently of database contents or open tabs.
-export function useWorkspacePanelWidth(database: 'oracle' | 'postgresql', panel: Panel, fallback: number) {
+export function useWorkspacePanelWidth(database: 'oracle' | 'postgresql' | 'mysql', panel: Panel, fallback: number) {
   const key = `monabase.panel-width.${database}.${panel}`;
   const [preferred, setPreferred] = useState(() => {
     try {

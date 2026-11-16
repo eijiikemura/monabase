@@ -7,13 +7,15 @@ export interface QueryTable { id: string; name: string; columns: string[]; x: nu
 export interface QueryField { id: string; tableId: string; tableName: string; columnName: string; sort: string; criteria: string; orCriteria: string; show: boolean; groupBy: string }
 export interface QueryJoin { id: string; fromTableId: string; fromCol: string; toTableId: string; toCol: string; joinType: string }
 export interface QuerySettings { queryTables: QueryTable[]; queryFields: QueryField[]; queryJoins: QueryJoin[] }
-export interface QueryDocument extends QuerySettings { version: 1; dbType: 'oracle' | 'postgresql'; selectedSchema: string }
+export interface QueryDocument extends QuerySettings { version: 1; dbType: 'oracle' | 'postgresql' | 'mysql'; selectedSchema: string }
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const text = (value: unknown): value is string => typeof value === 'string' && !!value.trim();
 function fail(code: string): never { throw new Error(code); }
 const aggregate = (field: QueryField) => !!field.groupBy && field.groupBy !== 'GROUP BY';
 
-function validCondition(value: string) {
+function validCondition(value: string, database: QueryDocument['dbType']) {
+  // MySQL backslash escapes differ from ANSI literals. Keep this restricted editor unambiguous.
+  if (database === 'mysql' && value.includes('\\')) fail('qb_invalid_condition');
   // Ignore quoted content while rejecting statement separators, comments and subqueries.
   let expression = '';
   for (let i = 0; i < value.length; i++) {
@@ -29,10 +31,11 @@ function validCondition(value: string) {
       expression += ' literal ';
     } else expression += value[i];
   }
+  if (database === 'mysql' && expression.includes('#')) fail('qb_invalid_condition');
   if (/[;]|--|\/\*|\b(SELECT|FROM|JOIN|UNION|WITH|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|COMMIT|ROLLBACK)\b/i.test(expression)) fail('qb_invalid_condition');
 }
 
-export function validateQuerySettings(value: unknown): QuerySettings {
+export function validateQuerySettings(value: unknown, database: QueryDocument['dbType'] = 'oracle'): QuerySettings {
   if (!record(value) || !Array.isArray(value.queryTables) || !Array.isArray(value.queryFields) || !Array.isArray(value.queryJoins)) fail('qb_invalid_file');
   const tables: QueryTable[] = [], fields: QueryField[] = [], joins: QueryJoin[] = [];
   const ids = new Set<string>(), names = new Set<string>();
@@ -56,7 +59,7 @@ export function validateQuerySettings(value: unknown): QuerySettings {
         typeof item.criteria !== 'string' || typeof item.orCriteria !== 'string' || typeof item.show !== 'boolean' ||
         typeof item.sort !== 'string' || !['', 'ASC', 'DESC'].includes(item.sort) ||
         typeof item.groupBy !== 'string' || !['', 'GROUP BY', 'SUM', 'COUNT', 'MIN', 'MAX', 'AVG'].includes(item.groupBy)) fail('qb_invalid_field');
-    validCondition(item.criteria); validCondition(item.orCriteria); ids.add(item.id);
+    validCondition(item.criteria, database); validCondition(item.orCriteria, database); ids.add(item.id);
     fields.push({ id: item.id, tableId: item.tableId, tableName: table.name, columnName: item.columnName, sort: item.sort,
       criteria: item.criteria, orCriteria: item.orCriteria, show: item.show, groupBy: item.groupBy });
   }
@@ -75,18 +78,22 @@ export function validateQuerySettings(value: unknown): QuerySettings {
 export function parseQueryDocument(source: string, dbType: QueryDocument['dbType']): QueryDocument {
   const parsed: unknown = JSON.parse(source);
   if (!record(parsed) || parsed.version !== 1 || parsed.dbType !== dbType || typeof parsed.selectedSchema !== 'string') fail('qb_invalid_file');
-  const settings = validateQuerySettings(parsed);
-  generateQuerySql(settings);
+  const settings = validateQuerySettings(parsed, dbType);
+  generateQuerySql(settings, dbType);
   return { version: 1, dbType, selectedSchema: parsed.selectedSchema, ...settings };
 }
 
-export function generateQuerySql(input: QuerySettings): string {
-  const { queryTables: tables, queryFields: fields, queryJoins: joins } = validateQuerySettings(input);
+export function generateQuerySql(input: QuerySettings, database: QueryDocument['dbType'] = 'oracle'): string {
+  const { queryTables: tables, queryFields: fields, queryJoins: joins } = validateQuerySettings(input, database);
+  const quote = database === 'mysql' ? (value: string) => '`' + value.replaceAll('`', '``') + '`' : quoteIdentifier;
   if (!tables.length) return '';
   if (fields.length && !fields.some(field => field.show)) fail('qb_no_fields');
   const aliases = new Map(tables.map((table, index) => [table.id, `t${index + 1}`]));
-  const column = (tableId: string, name: string) => `${aliases.get(tableId)}.${quoteIdentifier(name)}`;
-  const source = (id: string) => `${tables.find(table => table.id === id)!.name} ${aliases.get(id)}`;
+  const column = (tableId: string, name: string) => `${aliases.get(tableId)}.${quote(name)}`;
+  const source = (id: string) => {
+    const identity = parseObjectIdentity(tables.find(table => table.id === id)!.name);
+    return `${quote(identity.schema)}.${quote(identity.objectName)} ${aliases.get(id)}`;
+  };
   const invert = (type: string) => type === 'LEFT' ? 'RIGHT' : type === 'RIGHT' ? 'LEFT' : 'INNER';
   const groups = new Map<string, { from: string; to: string; type: string; conditions: string[] }>();
   for (const join of joins) {

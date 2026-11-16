@@ -4,7 +4,7 @@
 
 # MonaBase
 
-**Oracle Database 12以降**と**PostgreSQL**に対応した、**AIネイティブなデスクトップ型データベースIDE**です。Electron、React、TypeScriptで開発しています。
+**Oracle Database 12以降**・**PostgreSQL**・**MySQL 8.4**に対応した、**AIネイティブなデスクトップ型データベースIDE**です。Electron、React、TypeScriptで開発しています。
 
 ストアドプログラムの作成・修正、トレースに基づくデバッグ、SQL作成、SQLチューニング、テストデータ生成をAIで支援します。**ストアドプログラムのソースとカスタムER図をGitで管理**し、変更内容を確認してから反映できます。さらに、メイン画面の**Commit／Rollbackによるトランザクション制御**と**読み取り専用接続モード**で、DBへの変更を意識した作業を支援します。
 
@@ -25,7 +25,7 @@ MonaBaseのAIは、汎用的なコード補完パネルだけではなく、作�
 
 | AIアシスタント | 主な用途 |
 | --- | --- |
-| ストアド・トリガーの実装 | 対象のオブジェクト定義をコンテキストにして、プロシージャ、ファンクション、パッケージ本体、トリガーの作成・修正を依頼し、提案されたソース差分を確認します。 |
+| ストアド・トリガーの実装 | 対象のオブジェクト定義をコンテキストにして、プロシージャ、ファンクション、ビュー、トリガー（Oracleはパッケージ本体も）の作成・修正を依頼し、提案されたソース差分を確認します。 |
 | トレースに基づくデバッグ | 記録された実行順序、行、分岐、変数値を追い、想定と実際の動作が異なる箇所を調べます。 |
 | SQL作成 | SQLウィンドウやクエリビルダーで、関連するテーブルやビューをコンテキストにして、必要なクエリを自然言語で指示します。 |
 | SQLチューニング | 実行計画や関連定義を使ってSQLを検討し、改善案を実際の実行計画と結果で検証します。 |
@@ -53,7 +53,21 @@ MonaBaseは、対応するプログラムにトレース処理を組み込み、
 
 参照作業には**読み取り専用接続モード**を利用できます。MonaBaseは実行可能なSQLをチェックし、DBの読み取り専用トランザクションを利用して、更新処理、ストアド実行、トレース実行をこのモードで制限します。書き込み可能なメイン接続では、対応するSQL画面やデータ編集画面で実行したDMLを未確定のまま保持し、メイン画面上部の**Commit**または**Rollback**で確定・取り消しできます。これらは該当する接続とトランザクションの範囲で動作し、独立した任意のDBセッションまで一括制御するものではありません。接続先を示す色や操作レビューも、対象と内容の確認に役立ちます。詳しくは[トランザクション制御ガイド](https://eijiikemura.github.io/monabase/ja/guides/transaction-control/)をご覧ください。
 
-これらの保護機能は、DBアカウントの最小権限設定や本番環境の変更管理手順を補完するものです。OracleとPostgreSQLでは対応操作が異なり、DDLによってそれ以前の変更が暗黙的にコミットされる場合もあります。**Rollbackですべての変更を取り消せるわけではありません。**
+これらの保護機能は、DBアカウントの最小権限設定や本番環境の変更管理手順を補完するものです。Oracle・PostgreSQL・MySQLでは対応操作が異なり、DDLによってそれ以前の変更が暗黙的にコミットされる場合もあります。**Rollbackですべての変更を取り消せるわけではありません。**
+
+## MySQL 8.4対応
+
+MySQLでも、SQL・表編集・テストデータ生成・クエリビルダー・クロス集計・ER図、ストアド／トリガーの開発・トレース解析、Git・AI支援、DBA画面を利用できます。MariaDBは対象外です。
+
+| 機能 | MySQLの動作・違い |
+| --- | --- |
+| 接続・取引 | 直接／SSH接続、証明書検証付きTLS、読み取り専用に対応。編集・生成はInnoDBが対象で、DMLは主画面のCommit／Rollbackで確定・取消します。DDLは失敗時も先行変更を暗黙に確定する場合があります。 |
+| SQL・チューニング | 型付きバインド・履歴・書式設定・日付表示、推定JSON実行計画、AI依頼と外部AI向け依頼ファイルに対応。既定は接続DBで、他DBは修飾名を使います。 |
+| 開発・Git | 表・ビュー・プロシージャ・関数・トリガーのDB定義とカスタムER図を履歴管理。AIの提案は下書きで、DB変更は明示確認後です。ストアドの置換はDROP＋CREATEを伴い、失敗時の復元は明示操作です。DELIMITER付き定義の確認付き取り込みも使えます。 |
+| トレース・AIデバッグ | プロシージャ・関数・トリガーを隔離コピーで記録。明示したテスト行だけを使い、元の行・他トリガー・外部キーは含めません。カーソル・入れ子・ハンドラー等を記録しますが、結合・副問い合わせ・他ルーチン呼出し・動的SQL・COMMIT・SELECT結果セット等は未対応です。 |
+| 生成・管理 | AUTO_INCREMENT／生成列はDB管理として生成から除外。ユーザー／権限／セッション／ロック、DB作成・既定値変更に対応。ストレージ情報は参照中心で、独立シーケンス・パッケージ・マテリアライズドビュー等の固有機能は再現しません。 |
+
+詳しくは[オンラインガイド](https://eijiikemura.github.io/monabase/ja/guides/getting-started/)と[MySQLの詳細仕様（英語）](docs/MYSQL.md)をご覧ください。古い配布ファイルはMySQLに未対応の場合があるため、ダウンロードする版のリリース説明をご確認ください。
 
 ## スクリーンショット
 
@@ -85,22 +99,22 @@ AIデバッグの根拠として利用できる、Oracleの実行ステップと
 
 ## 公式サイトとマニュアル
 
-[`website/`](website/README.md)にあるAstro + Starlightプロジェクトで、日本語・英語のトップページと、画面ごとのマニュアルを管理しています。[はじめて使う](https://eijiikemura.github.io/monabase/ja/guides/getting-started/)、[トランザクション制御](https://eijiikemura.github.io/monabase/ja/guides/transaction-control/)、[お問い合わせ](https://eijiikemura.github.io/monabase/ja/guides/contact/)、[プライバシーポリシー](https://eijiikemura.github.io/monabase/ja/guides/privacy-policy/)などがあり、Oracle／PostgreSQLの対応バッジも表示されます。ローカルプレビュー、`i18n:extract`、検証、GitHub Pagesへの公開方法は`website/README.md`をご覧ください。Webサイトの依存関係はデスクトップアプリとは独立しています。
+[`website/`](website/README.md)にあるAstro + Starlightプロジェクトで、日本語・英語のトップページと、画面ごとのマニュアルを管理しています。[はじめて使う](https://eijiikemura.github.io/monabase/ja/guides/getting-started/)、[トランザクション制御](https://eijiikemura.github.io/monabase/ja/guides/transaction-control/)、[お問い合わせ](https://eijiikemura.github.io/monabase/ja/guides/contact/)、[プライバシーポリシー](https://eijiikemura.github.io/monabase/ja/guides/privacy-policy/)などがあり、Oracle／PostgreSQL／MySQLの対応バッジも表示されます。ローカルプレビュー、`i18n:extract`、検証、GitHub Pagesへの公開方法は`website/README.md`をご覧ください。Webサイトの依存関係はデスクトップアプリとは独立しています。
 
 ## 開発環境の準備
 
 デスクトップアプリはElectron 44を使用しています。v1.0.1からWindows x64とmacOS 13以上のApple Silicon（arm64）向け配布に対応します。Intel Mac・Linux向け配布はありません。Linux上の自動テストは継続しています。
 
-Node.js 22.12以降、npm、およびDB操作を行うためのOracleまたはPostgreSQL環境を用意してください。
+Node.js 22.12以降、npm、およびDB操作を行うためのOracle・PostgreSQL・MySQLのいずれかの環境を用意してください。
 
 ```sh
 npm ci
 npm run dev
 ```
 
-開発コマンドではViteとElectronを同時に起動します。OracleまたはPostgreSQLを用意し、ログイン画面で接続を設定してください。OracleのOS認証には64bit版Oracle Clientが必要で、設定画面でそのフォルダーを選択します。SSHトンネル接続では初回にサーバーのフィンガープリントを確認します。保存済みのホスト鍵が変わると接続をブロックします。AIは任意機能で、使用時にはAI設定画面から互換エンドポイントとモデルを指定します。
+開発コマンドではViteとElectronを同時に起動します。Oracle・PostgreSQL・MySQLのいずれかを用意し、ログイン画面で接続を設定してください。OracleのOS認証には64bit版Oracle Clientが必要で、設定画面でそのフォルダーを選択します。SSHトンネル接続では初回にサーバーのフィンガープリントを確認します。保存済みのホスト鍵が変わると接続をブロックします。AIは任意機能で、使用時にはAI設定画面から互換エンドポイントとモデルを指定します。
 
-SSH秘密鍵ファイルの上限は1MiB、PostgreSQLのカスタムCA証明書バンドルの上限は4MiBです。通常ファイルへのシンボリックリンクも使用できます。アプリはこれらのファイルを読み取りますが、ファイルの内容やアクセス権は変更しません。
+SSH秘密鍵ファイルの上限は1MiB、PostgreSQLのカスタムCA証明書バンドルは4MiB、MySQLのCA証明書PEMは1MiBが上限です。通常ファイルへのシンボリックリンクも使用できます。アプリはこれらのファイルを読み取りますが、ファイルの内容やアクセス権は変更しません。
 
 ## 検証とビルド
 
@@ -116,7 +130,7 @@ npm run build
 npm run build:win
 ```
 
-これらのコマンドでデスクトップアプリの成果物を`release/`に作成します。CIはLinuxで共通テストを実行し、WindowsとmacOSで展開済みアプリをビルド・検証します。別のワークフローでは、使い捨てのPostgreSQL／Oracle環境とElectronサイドバー操作をテストします。詳細は[テストガイド](docs/TESTING.md)をご覧ください。インストーラー作成、署名、追加のDB・バージョン検証は[リリースチェックリスト](docs/RELEASE_CHECKLIST.md)に従います。
+これらのコマンドでデスクトップアプリの成果物を`release/`に作成します。CIはLinuxで共通テストを実行し、WindowsとmacOSで展開済みアプリをビルド・検証します。別のワークフローでは、使い捨てのPostgreSQL／Oracle／MySQL環境とElectronサイドバー操作をテストします。詳細は[テストガイド](docs/TESTING.md)をご覧ください。インストーラー作成、署名、追加のDB・バージョン検証は[リリースチェックリスト](docs/RELEASE_CHECKLIST.md)に従います。
 
 Windows向けにはインストーラー版とポータブル版のEXEを別々に作成します。v1.0.1からMac版も正式に提供します。Mac版はDeveloper ID署名・Apple公証済みDMGです。DMGを開き、MonaBaseをアプリケーションへ移し、DMGを取り出してから起動してください。詳細は[Mac配布手順](docs/MACOS_DISTRIBUTION.md)を参照してください。手動実行の**Prepare release**ワークフローでは、Windows x64のビルドを行い、GitHub Artifact Attestationsとチェックサムを生成して、**下書きのGitHub Release**に添付します。通常のpushだけではリリースは公開されません。バージョンタグ、公開、ダウンロード検証の手順は[リリース手順](docs/RELEASE_CHECKLIST.md#prepare-a-github-release)をご覧ください。Windows配布物はコード署名されておらず、AttestationはOSのコード署名の代わりにはなりません。Mac版はローカルで署名・公証したDMGとSHA256SUMS-mac-arm64を手動で添付します。手動Mac版にはGitHub Artifact Attestationは付与されません。
 

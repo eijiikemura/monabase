@@ -96,7 +96,7 @@ async function fixture(dbType) {
     flush, alerts, confirms, calls, images, ownViewport, unmount: hook.unmount };
 }
 
-for (const db of ['oracle', 'postgresql']) {
+for (const db of ['oracle', 'postgresql', 'mysql']) {
   test(`${db}: schema survives load and save; unversioned and unknown versions are rejected without replacing the diagram`, async () => {
     const h = await fixture(db);
     try {
@@ -173,7 +173,7 @@ for (const db of ['oracle', 'postgresql']) {
   });
 }
 
-for (const db of ['oracle', 'postgresql']) {
+for (const db of ['oracle', 'postgresql', 'mysql']) {
   test(`${db}: parallel relations retain their own Git comparison status and restoring schema is undoable`, async () => {
     const h = await fixture(db);
     try {

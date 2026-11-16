@@ -9,7 +9,7 @@ const numericFields = ['seqStart', 'seqStep', 'randNumMin', 'randNumMax', 'randN
 const ruleTypes = ['UNSPECIFIED', 'SEQ_NUM', 'SEQ_DATE', 'RANDOM_NUM', 'RANDOM_CHAR', 'RANDOM_DATE', 'CHOICE', 'FIXED', 'DISABLED'];
 const charTypes = ['ALPHA', 'NUM', 'ALPHANUM', 'ZENKAKU', 'REGEX'];
 const metadata = ['COLUMN_NAME', 'DATA_TYPE', 'DATA_LENGTH', 'NULLABLE', 'PG_TYPE_SCHEMA', 'PG_TYPE_NAME',
-  'PG_TYPE_KIND', 'PG_TYPE_CATEGORY', 'DATA_PRECISION', 'DATA_SCALE', 'DATA_DEFAULT'];
+  'PG_TYPE_KIND', 'PG_TYPE_CATEGORY', 'MYSQL_COLUMN_TYPE', 'generationExclusion', 'DATA_PRECISION', 'DATA_SCALE', 'DATA_DEFAULT'];
 export type ValidateGeneratorRule = (rule: ColumnRule, count: number) => void;
 
 // Bound expansion and reject already rounded numeric JSON values. Text retains exact digits.

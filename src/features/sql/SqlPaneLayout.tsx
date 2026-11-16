@@ -12,10 +12,10 @@ import { useTranslation } from 'react-i18next';
 type PaneMode = 'split' | 'editor' | 'result';
 const clampHeight = (height: number, available: number) => Math.max(80, Math.min(height, Math.max(80, available - 110)));
 
-export function useSqlPaneLayout(isActive: boolean) {
+export function useSqlPaneLayout(isActive: boolean, initialHeight = 260) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [available, setAvailable] = useState(600);
-  const [preferredHeight, setPreferredHeight] = useState(260);
+  const [preferredHeight, setPreferredHeight] = useState(initialHeight);
   const [mode, setMode] = useState<PaneMode>('split');
   const [isResizing, setIsResizing] = useState(false);
   const drag = useRef<{ y: number; height: number } | null>(null);

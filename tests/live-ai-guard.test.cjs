@@ -83,3 +83,38 @@ test('Unsupported streaming options cannot trigger a second paid HTTP attempt', 
   } }), /automatic retry is forbidden/);
   assert.equal(calls, 1);
 });
+
+test('Paid suite/model selection is explicit, bounded and rejects duplicate or unsupported options',()=>{
+ assert.doesNotThrow(()=>authorize(['--allow-paid','--model=gpt-6-luna','--suite=mixed'],{}));
+ for(const args of [['--model=unknown'],['--suite=unknown'],['--model=gpt-6-luna','--model=gpt-4o-mini'],['--suite=mysql','--suite=mixed']])assert.throws(()=>authorize(['--allow-paid',...args],{}));
+});
+test('MySQL SELECT validation rejects copied reference DDL without weakening the single-statement guard',()=>{
+ const scenario=require('./live-ai/mysql-scenarios.cjs').scenarios[0];
+ const reply=source=>JSON.stringify({status:'success',source,message:''});
+ scenario.validate(reply('SELECT ID FROM `mb_test`.`MB_AI_DEMO` WHERE ID=7;'));
+ assert.throws(()=>scenario.validate(reply('CREATE TABLE `mb_test`.`MB_AI_DEMO` (`ID` BIGINT PRIMARY KEY); SELECT ID FROM `mb_test`.`MB_AI_DEMO` WHERE ID=7;')));
+ assert.throws(()=>scenario.validate(reply('DELETE FROM `mb_test`.`MB_AI_DEMO` WHERE ID=7;')));
+ const view=require('./live-ai/mysql-scenarios.cjs').scenarios[7];
+ view.validate(mysqlAnswer(7));
+ assert.throws(()=>view.validate(reply('CREATE TABLE `mb_test`.`MB_AI_DEMO` (`ID` BIGINT PRIMARY KEY); CREATE VIEW `mb_test`.`mb_ai_positive` AS SELECT ID, amount FROM `mb_test`.`MB_AI_DEMO` WHERE amount > 0;')));
+});
+function mysqlAnswer(index){
+ const source=source=>JSON.stringify({status:'success',source,message:''});
+ if(index===0)return source('SELECT ID FROM `mb_test`.`MB_AI_DEMO` WHERE ID=7');
+ if(index===1)return source('CREATE PROCEDURE mb_test.mb_ai_double(IN p_value INT, OUT p_result INT) BEGIN SET p_result=p_value*2; END');
+ if(index===2)return source('CREATE FUNCTION mb_test.mb_ai_add_one(p_value INT) RETURNS INT DETERMINISTIC RETURN p_value+1');
+ if(index===3)return source('CREATE TRIGGER mb_test.mb_ai_before BEFORE INSERT ON mb_test.MB_AI_DEMO FOR EACH ROW BEGIN SET NEW.amount=COALESCE(NEW.amount,0); END');
+ if(index===4){const design=structuredClone(require('./live-ai/mysql-scenarios.cjs').design);design.queryFields[0].groupBy='SUM';return JSON.stringify(design);}
+ if(index===5)return "Create an INDEX on created_at and use created_at >= '2026-01-01' AND created_at < '2026-01-02'; verify with EXPLAIN.";
+ if(index===6)return answer(7);
+ return source('CREATE VIEW mb_test.mb_ai_positive AS SELECT ID, amount FROM mb_test.MB_AI_DEMO WHERE amount>0');
+}
+for(const suite of ['mysql','mixed'])test(`Paid ${suite} suite validates synthetic replies through native parsers with gpt-6-luna and no extra requests`,async()=>{
+ let calls=0;const observations=[];
+ const replies=suite==='mysql'?Array.from({length:8},(_,i)=>mysqlAnswer(i)):[answer(0),answer(1),mysqlAnswer(0),mysqlAnswer(2),answer(3),answer(4),mysqlAnswer(5),mysqlAnswer(6)];
+ const result=await runLiveAi({apiKey:key,model:'gpt-6-luna',suite,log(){},onObservation:value=>observations.push(value),fetchImpl:async(url,options)=>{
+ assert.equal(url,ENDPOINT);const payload=JSON.parse(options.body);assert.equal(payload.model,'gpt-6-luna');assert.equal(payload.max_completion_tokens,4096);assert.equal(payload.reasoning_effort,undefined);const text=replies[calls++],usage={prompt_tokens:12,completion_tokens:9};
+ if(payload.stream)return new Response([{choices:[{index:0,delta:{content:text},finish_reason:null}]},{choices:[{index:0,delta:{},finish_reason:'stop'}]},{choices:[],usage}].map(value=>'data: '+JSON.stringify(value)+'\n\n').join('')+'data: [DONE]\n\n',{headers:{'content-type':'text/event-stream'}});
+ return new Response(JSON.stringify({choices:[{message:{content:text},finish_reason:'stop'}],usage}),{headers:{'content-type':'application/json'}});
+ }});assert.equal(result.requests,8);assert.equal(calls,8);assert.equal(observations.filter(value=>value.status==='passed').length,8);assert.ok(!JSON.stringify(observations).includes(key));
+});

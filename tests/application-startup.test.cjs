@@ -41,6 +41,7 @@ async function launch(packaged, options = {}) {
     process: { platform: options.platform || 'linux', cwd: () => '/test-workspace' },
     console, setTimeout,
     require(name) {
+      if (name === './startupDiagnostics') return { createStartupDiagnostics: () => ({ mark() {}, attach() {}, measure: (_stage, operation) => operation() }) };
       if (name === 'electron') return {
         app, BrowserWindow, ipcMain: { handle: (channel, callback) => handlers.set(channel, callback) }, safeStorage: {},
         Menu: { setApplicationMenu() {} }

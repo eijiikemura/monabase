@@ -1,6 +1,7 @@
 // Copyright 2026 eiji ikemura
 // SPDX-License-Identifier: Apache-2.0
 
+import { parseMysqlPlan, buildMysqlTuningPrompt } from '@/features/mysql/sqlPlan';
 import { notify } from '@/shared/utils/notifications';
 import { oraclePlanTableIdentity } from './explainIdentity';
 import { getFullTableDDL } from '@/features/postgresql/windows/common/ddlHelper';
@@ -44,14 +45,14 @@ export interface SqlWindowBottomProps {
   title: string;
   isAiEnabled: boolean;
   onOpenAiSidebar: (context: AiContext | null) => void;
-  dbType?: 'oracle' | 'postgresql';
+  dbType?: 'oracle' | 'postgresql' | 'mysql';
 }
 
 export const useSqlWindowBottom = (props: SqlWindowBottomProps) => {
   const { rows, columns, dateFormat, sqlText, dbInfo, isExplainResult } = props;
   const { t, i18n } = useTranslation();
 
-  const resolvedDbType: 'oracle' | 'postgresql' = useMemo(() => {
+  const resolvedDbType: 'oracle' | 'postgresql' | 'mysql' = useMemo(() => {
     if (props.dbType) return props.dbType;
     if (dbInfo && dbInfo.toLowerCase().includes('oracle')) return 'oracle';
     return 'postgresql';
@@ -163,6 +164,9 @@ export const useSqlWindowBottom = (props: SqlWindowBottomProps) => {
         }
       });
       if (headerText.length === 0) headerText.push(t("oracle_execution_plan_explain_plan"));
+    } else if (resolvedDbType === 'mysql') {
+      try { return { ...parseMysqlPlan(rows), headerText: [t('mysql_execution_plan')] }; }
+      catch { return { tree: [], predicates: [String(rows[0]?.PLAN_TABLE_OUTPUT || '')], headerText: [t('mysql_plan_unavailable')] }; }
     } else {
       try {
         const rawOutput = rows[0]?.PLAN_TABLE_OUTPUT;
@@ -235,6 +239,21 @@ export const useSqlWindowBottom = (props: SqlWindowBottomProps) => {
       const snapshot = props.explainSnapshot;
       if (isExplainResult && (!snapshot?.sql.trim() || !snapshot.rows.length)) {
         throw new Error(t('explain_context_unavailable'));
+      }
+      if (resolvedDbType === 'mysql') {
+        if (!snapshot) throw new Error(t('explain_context_unavailable'));
+        const output = await buildMysqlTuningPrompt(snapshot, dbInfo, includeBindValues, i18n.language);
+        if (props.isAiEnabled) props.onOpenAiSidebar({ targetTab: props.title, requestType: 'sql_tuning', initialPrompt: output });
+        else {
+          notify(t('ai_external_tuning_export_notice'));
+          const destination = await ipcRenderer.invoke('show-save-dialog', { title: t('save_ai_tuning_info'), defaultPath: 'mysql_tuning_info.txt', filters: [{ name: t('text_file'), extensions: ['txt'] }] });
+          if (!destination.canceled && destination.filePath) {
+            const saved = await ipcRenderer.invoke('save-file', destination.filePath, output, 'utf8');
+            if (!saved.success) throw new Error(saved.error);
+            notify(t('ai_tuning_prompt_exported'), { severity: 'success' });
+          }
+        }
+        return;
       }
       const analyzedRows = isExplainResult && snapshot ? snapshot.rows : [];
       const analyzedSql = isExplainResult && snapshot ? snapshot.sql : sqlText;

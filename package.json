@@ -5,7 +5,7 @@
   "author": {
     "name": "eiji ikemura"
   },
-  "version": "1.0.2",
+  "version": "1.1.0",
   "type": "commonjs",
   "main": "electron/main.js",
   "scripts": {
@@ -33,7 +33,9 @@
     "test:ai:live": "node tests/live-ai/runner.cjs",
     "test:ai:effect": "node tests/live-ai/effect.cjs",
     "test:ai:trace": "node tests/live-ai/trace-effect.cjs",
-    "test:ai:programs": "node tests/live-ai/program-effect.cjs"
+    "test:ai:programs": "node tests/live-ai/program-effect.cjs",
+    "test:mysql": "node --test --test-concurrency=1 tests/mysql/*.test.cjs",
+    "test:mysql:database": "node --test tests/disposable/mysql-database.test.cjs"
   },
   "build": {
     "appId": "dev.ikemura.monabase",
@@ -111,6 +113,7 @@
     "html-to-image": "^1.11.13",
     "i18next": "^26.4.1",
     "iconv-lite": "^0.7.3",
+    "mysql2": "3.24.6",
     "oracledb": "^6.10.0",
     "pg": "^8.23.0",
     "prismjs": "^1.30.0",

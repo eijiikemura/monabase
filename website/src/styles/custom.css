@@ -39,6 +39,7 @@ header.header { backdrop-filter: blur(16px); }
 .db-badge { display: inline-flex; align-items: center; gap: .35rem; border: 1px solid var(--border); border-radius: 99px; padding: .2rem .65rem; color: var(--ink); font-size: .72rem; font-weight: 650; line-height: 1.5; white-space: nowrap; }
 .db-dot { width: .35rem; height: .35rem; border-radius: 50%; background: #f29c8e; }
 .postgresql .db-dot { background: #7bbbe8; }
+.mysql .db-dot { background: #eeb35d; }
 .product-figure { margin: 2rem 0; min-width: 0; }
 .product-figure img { display: block; width: 100%; height: auto; margin: 0; border: 1px solid var(--border); border-top: 0; border-radius: 0 0 .7rem .7rem; }
 .window-chrome { height: 2rem; background: var(--surface); border: 1px solid var(--border); border-radius: .7rem .7rem 0 0; display: flex; align-items: center; gap: .3rem; padding: 0 .8rem; }

@@ -12,7 +12,7 @@ const { createHash } = require('node:crypto');
 
 // Database adapters retain their public interface and share only JSON persistence.
 function createTraceDatabase(database, { getStoragePaths = defaultStoragePaths } = {}) {
-  if (!['oracle', 'postgres'].includes(database)) throw new Error('Invalid trace database.');
+  if (!['oracle', 'postgres', 'mysql'].includes(database)) throw new Error('Invalid trace database.');
   const filename = identity => resolveTraceFile(getStoragePaths().traceDirectory, database, identity);
   return class TraceDatabase {
     constructor(identity) {
@@ -47,6 +47,11 @@ function createTraceDatabase(database, { getStoragePaths = defaultStoragePaths }
     }
 
     _saveToFile(data = this.data) { atomicWriteJson(filename(this.identity), data); }
+
+    async saveTraceRun(traceInfo, steps) {
+      const data={traceInfo,traceSteps:steps.map((step,index)=>({step_id:index+1,line_num:step.lineNum,loop_path:step.loopPath,variables_json:JSON.stringify(step.variables),log_text:step.logText}))};
+      this._saveToFile(data);this.data=data;
+    }
 
     async saveTraceInfo(traceDate, argsJson, targetCompileDate = null, subProgram = null, source = null) {
       const traceInfo = {

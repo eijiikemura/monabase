@@ -89,3 +89,21 @@ test('View metadata retains readable previous results on refresh failure and dis
   assert.equal(f.button('retry').props.disabled, true); assert.equal(f.button('refresh').props.disabled, true);
   f.props.loading = false; f.render(); await f.click('retry'); assert.equal(reads, 1); f.unmount();
 });
+
+test('Generator date previews follow outputDateFormat without altering source values or formatting ordinary text', () => {
+  const rows = [{ stamp: '31/12/2026 12:34:56.123456', day: '30/12/2026', text: '2026-12-31', time: '12:34:56', missing: null }];
+  const before = JSON.stringify(rows);
+  const f = render('src/features/data-generator/GenerationPreviewDialog.tsx', {
+    open: true, rows, columns: ['stamp', 'day', 'text', 'time', 'missing', 'default'], disabled: false,
+    rules: [{ COLUMN_NAME: 'stamp', DATA_TYPE: 'TIMESTAMP' }, { COLUMN_NAME: 'day', DATA_TYPE: 'DATE' }, { COLUMN_NAME: 'text', DATA_TYPE: 'VARCHAR' }, { COLUMN_NAME: 'time', DATA_TYPE: 'TIME' }],
+    inputDateFormat: 'DD/MM/YYYY', outputDateFormat: 'YYYY-MM-DD HH:mm:ss', onClose() {}, onRefresh() {}, onExecute() {}
+  }, { name: 'GenerationPreviewDialog' });
+  const cells = () => f.nodes().filter(node => node.type === 'TableCell').slice(6);
+  assert.equal(cells()[0].children[0], '2026-12-31 12:34:56'); assert.equal(cells()[1].children[0], '2026-12-30');
+  assert.equal(cells()[2].children[0], '2026-12-31'); assert.equal(cells()[3].children[0], '12:34:56');
+  assert.equal(cells()[4].children[0].type, 'strong'); assert.equal(cells()[5].children[0], 'generation_db_default');
+  f.props.outputDateFormat = 'DD-MMM-YYYY HH:mm:ss'; f.render(); assert.equal(cells()[0].children[0], '31-DEC-2026 12:34:56');
+  assert.equal(JSON.stringify(rows), before);
+  f.props.rows = [{ stamp: '31/12/2026' }]; f.props.outputDateFormat = 'YYYY-MM-DD HH:mm:ss'; f.render();
+  assert.equal(cells()[0].children[0], '2026-12-31 00:00:00'); f.unmount();
+});

@@ -35,7 +35,8 @@ interface QuerySettings {
   queryJoins: QueryJoin[];
 }
 interface Options extends QuerySettings {
-  dbType: 'oracle' | 'postgresql';
+  dbType: 'oracle' | 'postgresql' | 'mysql';
+  tabId?: number;
   title: string;
   isAiEnabled?: boolean;
   onOpenAiSidebar?: (context: AiContext | null) => boolean | void;
@@ -56,16 +57,16 @@ const settingsSignature = (settings: QuerySettings) => JSON.stringify({
 });
 
 const typeFamily = (dataType: string) => {
-  const type = dataType.toUpperCase().replace(/\(.*\)/g, '').trim();
+  const type = dataType.toUpperCase().replace(/\(.*\)/g, '').replace(/\b(?:UNSIGNED|ZEROFILL)\b/g, '').trim();
   if (type.endsWith('[]')) return type;
-  if (/^(NUMBER|NUMERIC|DECIMAL|INTEGER|INT|SMALLINT|BIGINT|REAL|FLOAT|DOUBLE PRECISION|BINARY_FLOAT|BINARY_DOUBLE)$/.test(type)) return 'numeric';
+  if (/^(NUMBER|NUMERIC|DECIMAL|INTEGER|INT|TINYINT|SMALLINT|MEDIUMINT|BIGINT|REAL|FLOAT|DOUBLE|DOUBLE PRECISION|BINARY_FLOAT|BINARY_DOUBLE)$/.test(type)) return 'numeric';
   if (/^(VARCHAR|NVARCHAR|CHAR|NCHAR|TEXT|CHARACTER)/.test(type)) return 'text';
-  if (/^(DATE|TIMESTAMP)/.test(type)) return 'datetime';
+  if (/^(DATE|DATETIME|TIMESTAMP)/.test(type)) return 'datetime';
   return type;
 };
 
 export function parseQueryBuilderAiAnswer(
-  answer: string, references: TableReference[], t: Translate
+  answer: string, references: TableReference[], t: Translate, database: Options['dbType'] = 'oracle'
 ): QuerySettings | null {
   const trimmed = answer.trim();
   const blocks = [...trimmed.matchAll(/```(?:json)?\s*\n?([\s\S]*?)```/gi)]
@@ -143,14 +144,14 @@ export function parseQueryBuilderAiAnswer(
       toTableId: value.toTableId, toCol: value.toCol, joinType: value.joinType
     };
   });
-  const settings = validateQuerySettings({ queryTables, queryFields, queryJoins });
-  generateQuerySql(settings);
+  const settings = validateQuerySettings({ queryTables, queryFields, queryJoins }, database);
+  generateQuerySql(settings, database);
   return settings;
 }
 
 function buildReferencePrompt(options: Options, references: TableReference[]) {
   return [
-    `あなたは${options.dbType === 'oracle' ? 'Oracle' : 'PostgreSQL'}のクエリビルダーでSQL作成を支援します。`,
+    `あなたは${options.dbType === 'oracle' ? 'Oracle' : options.dbType === 'mysql' ? 'MySQL 8.4' : 'PostgreSQL'}のクエリビルダーでSQL作成を支援します。`,
     'ユーザーの依頼文を読み、以下の参考情報を使って回答してください。',
     '対象は提供された追加済みのテーブル・ビューと、その実在する列だけです。SQLの自動実行はしません。',
     'テーブル・ビューのコメントと列コメントを論理名の判断に使用してください。',
@@ -167,6 +168,7 @@ function buildReferencePrompt(options: Options, references: TableReference[]) {
     '循環する結合、自己結合など、画面で表現できない依頼はその理由を説明し、JSONを出力しないでください。',
     '同じ2表の複数列結合は同じ結合方向と種類で指定してください。独立した結合グループも使用できます。循環結合・自己結合には対応しません。',
     '集計列のsortは集計結果を並び替えます。集計結果への条件（HAVING）が必要なら、画面で対応できないことを説明してください。',
+    ...(options.dbType === 'mysql' ? ['MySQL identifiers use backticks in generated SQL. Conditions must not contain backslash escapes or # comments. Use doubled quotes inside string literals. Return design JSON only; no SQL execution or transaction changes.'] : []),
     '参考情報（追加済みテーブル・ビューの種別、定義、型、コメント）:',
     JSON.stringify(references, null, 2),
     '現在の画面設定と保存形式:',
@@ -222,17 +224,17 @@ export function useQueryBuilderAi(options: Options) {
       const references = await loadReferences(current);
       if (!mountedRef.current || version !== requestVersionRef.current) return;
       if (settingsSignature(optionsRef.current) !== expected || optionsRef.current.isBusy?.()) throw new Error(t('query_settings_have_changed_ask_ai_again'));
-      current.onOpenAiSidebar({ targetTab: current.title, requestType: 'query_builder', requestId: crypto.randomUUID(),
+      current.onOpenAiSidebar({ targetTab: current.title, targetTabId: current.tabId, requestType: 'query_builder', requestId: crypto.randomUUID(),
         referencePrompt: buildReferencePrompt(current, references) + '\n' +
           (i18n?.resolvedLanguage?.startsWith('ja') ? '説明と確認質問は日本語で回答してください。' : 'Write explanations and clarification questions in English.'),
         onResponse: answer => {
           if (!mountedRef.current || version !== requestVersionRef.current) return;
           const latest = optionsRef.current;
-          const settings = parseQueryBuilderAiAnswer(answer, references, t);
+          const settings = parseQueryBuilderAiAnswer(answer, references, t, latest.dbType);
           if (!settings) return;
           if (settingsSignature(latest) !== expected || latest.isBusy?.()) throw new Error(t('query_settings_have_changed_ask_ai_again'));
           const proposal = { settings, expected, references, version,
-            beforeSql: generateQuerySql(latest), afterSql: generateQuerySql(settings),
+            beforeSql: generateQuerySql(latest, latest.dbType), afterSql: generateQuerySql(settings, latest.dbType),
             beforeSettings: JSON.stringify({ queryTables: latest.queryTables, queryFields: latest.queryFields, queryJoins: latest.queryJoins }, null, 2),
             afterSettings: JSON.stringify(settings, null, 2) };
           reviewRef.current = proposal; setReview(proposal);

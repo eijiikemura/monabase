@@ -11,6 +11,53 @@ permissions:
   contents: read
 
 jobs:
+  mysql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Start the disposable MySQL 8.4 service with a local test CA
+        run: |
+          node scripts/prepare-mysql-test-tls.cjs
+          docker compose -f tests/fixtures/mysql/compose.yml up -d --wait
+      - run: npm run test:mysql
+        env:
+          MONABASE_MYSQL_DISPOSABLE: '1'
+      - run: npm run test:mysql:database
+        env:
+          MONABASE_MYSQL_DATABASE_DISPOSABLE: '1'
+      - run: npm run build:renderer
+      - name: Configure Electron sandbox for disposable MySQL UI tests
+        run: |
+          set -euo pipefail
+          node -e "require('electron')"
+          sandbox="$(node -p "require('path').join(require('path').dirname(require('electron')), 'chrome-sandbox')")"
+          test -f "$sandbox"
+          test ! -L "$sandbox"
+          sudo chown root:root "$sandbox"
+          sudo chmod 4755 "$sandbox"
+      - name: Test MySQL Git and AI review workflows without paid API calls
+        run: xvfb-run -a --server-args="-screen 0 2560x1440x24" npx electron tests/e2e/mysql.cjs
+        env:
+          MONABASE_MYSQL_DISPOSABLE: '1'
+          MONABASE_MYSQL_UI_FEATURES: '1'
+      - name: Test database creation and defaults in a separate disposable MySQL container
+        run: xvfb-run -a --server-args="-screen 0 2560x1440x24" npx electron tests/e2e/mysql.cjs
+        env:
+          MONABASE_MYSQL_DISPOSABLE: '1'
+          MONABASE_MYSQL_DATABASE_DISPOSABLE: '1'
+          MONABASE_MYSQL_UI_DATABASE: '1'
+      - name: Stop the disposable MySQL service
+        if: always()
+        run: docker compose -f tests/fixtures/mysql/compose.yml down
+
   postgres:
     runs-on: ubuntu-latest
     timeout-minutes: 15

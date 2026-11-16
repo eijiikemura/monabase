@@ -8,7 +8,7 @@ function sourceFileName(name, signature, tableName) {
   const label = Array.from(name.replace(/[^a-zA-Z0-9_-]/g, '_')).slice(0, 32).join('') || 'routine';
   return `${label}_${createHash('sha256').update(JSON.stringify(tableName !== undefined ? ['trigger-table-v1', tableName, name] : signature === undefined ? ['object-v2', name] : [name, signature])).digest('hex')}.sql`;
 }
-const canonicalGitDbType = value => typeof value === 'string' && /^(POSTGRES|POSTGRESQL)$/i.test(value) ? 'POSTGRESQL' : value;
+const canonicalGitDbType = value => typeof value === 'string' && /^(POSTGRES|POSTGRESQL)$/i.test(value) ? 'POSTGRESQL' : typeof value === 'string' && /^MYSQL$/i.test(value) ? 'MYSQL' : value;
 
 // Associate an archived filename only when its DDL declares the requested identity.
 function legacySourceMatches(source, { dbType, schema, objectType, objectName }) {

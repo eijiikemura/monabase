@@ -3,7 +3,7 @@
 
 export interface ObjectIdentity { schema: string; objectName: string; }
 
-export type DbType = 'oracle' | 'postgresql';
+export type DbType = 'oracle' | 'postgresql' | 'mysql';
 
 export type ObjectCategory =
   | 'TABLE' | 'VIEW' | 'MATERIALIZED VIEW' | 'MATERIALIZED VIEW LOG'

@@ -73,7 +73,7 @@ const styles = {
   historyGridRoot: { border: 0, flexGrow: 1, '& .even-row': { bgcolor: 'action.hover' }, '& .even-row:hover': { bgcolor: 'action.selected' }, '& .MuiDataGrid-row:hover': { cursor: 'pointer' } }
 };
 
-export const ExplainTreeNode = memo(({ node, depth = 0, dbType }: { node: ExplainNode, depth?: number, dbType?: 'oracle' | 'postgresql' }) => {
+export const ExplainTreeNode = memo(({ node, depth = 0, dbType }: { node: ExplainNode, depth?: number, dbType?: 'oracle' | 'postgresql' | 'mysql' }) => {
   const [expanded, setExpanded] = useState(true);
   const hasChildren = node.children && node.children.length > 0;
   const isTable = Boolean(node.table);
@@ -82,7 +82,7 @@ export const ExplainTreeNode = memo(({ node, depth = 0, dbType }: { node: Explai
   // Select warning checks by database type.
   const isAlertOp = dbType === 'oracle' 
     ? (opUpper.includes('TABLE ACCESS FULL') || (opUpper.includes('INDEX FULL SCAN') && !opUpper.includes('INDEX FAST FULL SCAN')) || opUpper.includes('INDEX SKIP SCAN'))
-    : opUpper.includes('SEQ SCAN');
+    : dbType === 'mysql' ? opUpper === 'ALL' : opUpper.includes('SEQ SCAN');
 
   const isEvenRow = !isNaN(parseInt(node.id, 10)) && parseInt(node.id, 10) % 2 === 0;
 
@@ -245,8 +245,8 @@ const SqlWindowBottomComponent = (props: SqlWindowBottomProps) => {
                       <Typography variant="caption" sx={styles.treeCol3}>Operation</Typography>
                       <Typography variant="caption" sx={styles.treeCol4}>Name</Typography>
                       <Typography variant="caption" sx={styles.treeCol5}>Rows</Typography>
-                      <Typography variant="caption" sx={styles.treeCol6}>{resolvedDbType === 'oracle' ? 'Bytes' : 'Width'}</Typography>
-                      <Typography variant="caption" sx={styles.treeCol7}>{resolvedDbType === 'oracle' ? 'Cost (%CPU)' : 'Cost (Start..Total)'}</Typography>
+                      <Typography variant="caption" sx={styles.treeCol6}>{resolvedDbType === 'oracle' || resolvedDbType === 'mysql' ? 'Bytes' : 'Width'}</Typography>
+                      <Typography variant="caption" sx={styles.treeCol7}>{resolvedDbType === 'mysql' ? 'Estimated cost' : resolvedDbType === 'oracle' ? 'Cost (%CPU)' : 'Cost (Start..Total)'}</Typography>
                       <Typography variant="caption" sx={styles.treeCol8}>Time</Typography>
                     </Box>
                     <Box sx={{ pb: 2 }}>

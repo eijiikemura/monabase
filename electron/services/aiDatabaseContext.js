@@ -3,6 +3,10 @@
 
 // Read the actual main session without starting, ending or replacing its transaction.
 async function getAiDatabaseContext(client, database) {
+  if (database === 'mysql') {
+    if (!client || typeof client.getAiDatabaseContext !== 'function') throw new Error('MySQL context is unavailable.');
+    return client.getAiDatabaseContext();
+  }
   if (!['oracle', 'postgres', 'postgresql'].includes(database)) throw new Error('Unsupported database context.');
   if (!client || client.isExecuting) throw new Error('AI context requires an idle connected database session.');
   const dbType = database === 'oracle' ? 'oracle' : 'postgresql';

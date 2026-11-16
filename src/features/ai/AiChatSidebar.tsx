@@ -73,7 +73,7 @@ export default function AiChatSidebar({ connectionScope, sendKey = 'enter', onCl
     setCollectingEnvironment(true);
     void Promise.resolve().then(() => ipcRenderer.invoke('get-ai-database-context')).then(result => {
       if (!current) return;
-      if (!result?.success || !result.environment || !['oracle', 'postgresql'].includes(result.environment.dbType) || result.environment.session !== 'main') throw new Error('Environment unavailable');
+      if (!result?.success || !result.environment || !['oracle', 'postgresql', 'mysql'].includes(result.environment.dbType) || result.environment.session !== 'main') throw new Error('Environment unavailable');
       setEnvironment(result.environment);
     }).catch(() => { if (current) setEnvironmentError(environmentFailureText); })
       .finally(() => { if (current) setCollectingEnvironment(false); });

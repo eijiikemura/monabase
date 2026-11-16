@@ -44,9 +44,18 @@ const cases = [
     validate(answer) { const value = JSON.parse(answer); const merged = generator.mergeGenerationSettings(value, [rule], 1, key => key); assert.equal(merged.generateCount, 2); assert.equal(generator.sequenceValue(merged.rules[0].seqStart, merged.rules[0].seqStep, 1), '9007199254740994'); } }
 ];
 
+const models=['gpt-4o-mini','gpt-4.1-mini','gpt-6-luna'];
+function getCases(suite='legacy') {
+ if(suite==='legacy')return cases;
+ const mysql=require('./mysql-scenarios.cjs').scenarios;
+ if(suite==='mysql')return mysql;
+ if(suite==='mixed')return [cases[0],cases[1],mysql[0],mysql[2],cases[3],cases[4],mysql[5],mysql[6]];
+ throw new Error('Unsupported paid test suite.');
+}
+
 function authorize(args, env = process.env) {
   if (env.CI && env.CI !== 'false') throw new Error('Paid AI tests are forbidden in CI.');
-  if (!args.includes('--allow-paid') || args.some(arg => arg !== '--allow-paid' && !/^--from=[0-7]$/.test(arg)) || args.filter(arg => arg.startsWith('--from=')).length > 1) throw new Error('Explicit --allow-paid is required. Run only after a fresh user request and temporary key.');
+  if (!args.includes('--allow-paid') || args.some(arg => arg !== '--allow-paid' && !/^--from=[0-7]$/.test(arg) && !/^--model=(gpt-4o-mini|gpt-4\.1-mini|gpt-6-luna)$/.test(arg) && !/^--suite=(legacy|mysql|mixed)$/.test(arg)) || ['--from=','--model=','--suite='].some(prefix=>args.filter(arg=>arg.startsWith(prefix)).length>1)) throw new Error('Explicit --allow-paid is required. Run only after a fresh user request and temporary key.');
 }
 
 // Read a one-time key from stdin, never from arguments, files or personal settings.
@@ -67,9 +76,10 @@ async function readKey(input = process.stdin) {
   return key;
 }
 
-async function runLiveAi({ apiKey, fetchImpl = globalThis.fetch, log = console.log, from = 0 }) {
-  assert.ok(Number.isInteger(from) && from >= 0 && from < cases.length);
-  const selected = cases.slice(from);
+async function runLiveAi({ apiKey, fetchImpl = globalThis.fetch, log = console.log, from = 0, model='gpt-4o-mini', suite='legacy', onObservation=()=>{} }) {
+  assert.ok(models.includes(model),'Unsupported paid test model.');
+  const available=getCases(suite);assert.ok(Number.isInteger(from) && from >= 0 && from < available.length);
+  const selected = available.slice(from);const completionLimit=model==='gpt-6-luna'?4096:MAX_COMPLETION_TOKENS;
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'monabase-live-ai-'));
   let calls = 0, allowedCalls = 0, inputTokens = 0, outputTokens = 0;
   try {
@@ -81,14 +91,14 @@ async function runLiveAi({ apiKey, fetchImpl = globalThis.fetch, log = console.l
       assert.ok(calls < MAX_REQUESTS && calls < allowedCalls, 'Request ceiling reached; automatic retry is forbidden.');
       calls++;
       const payload = JSON.parse(options.body);
-      assert.equal(payload.model, 'gpt-4o-mini');
+      assert.equal(payload.model, model);
       // This test-only cap leaves production request defaults unchanged.
-      payload.max_completion_tokens = MAX_COMPLETION_TOKENS;
+      payload.max_completion_tokens = completionLimit;
       return fetchImpl(url, { ...options, body: JSON.stringify(payload) });
     };
     loadModule('electron/ipc/ai.js', {}, { fetch: boundedFetch }, { strict: false }).registerAiHandlers({
       ipcMain: { handle: (name, fn) => handlers.set(name, fn) }, BrowserWindow: { getAllWindows: () => [] },
-      aiSettingsStore: { load: () => ({ isAiEnabled: true, apiKey, modelName: 'gpt-4o-mini', endpointUrl: 'https://api.openai.com/v1' }) },
+      aiSettingsStore: { load: () => ({ isAiEnabled: true, apiKey, modelName: model, endpointUrl: 'https://api.openai.com/v1' }) },
       getValidatedSettings: () => ({ aiResponseMaxMb: 1, aiIdleTimeoutSeconds: 30, aiRequestTimeoutSeconds: 60 }),
       AI_CONFIG_FILE: configFile, AI_DIR: directory, AI_USAGE_DIR: path.join(directory, 'usage'), t: key => key
     });
@@ -96,19 +106,22 @@ async function runLiveAi({ apiKey, fetchImpl = globalThis.fetch, log = console.l
       allowedCalls = calls + 1;
       const before = calls; chunks.length = 0;
       const result = await handlers.get('ask-ai')({ sender }, scenario.prompt, scenario.history || [], scenario.type, `live-${index}`, { stream: scenario.stream === true });
-      if (!result.success) throw new Error(`${scenario.name}: ${safeAiError(result.error, apiKey)}`);
+      if (!result.success) { onObservation({scenario:scenario.name,requestIndex:from+index,requests:calls,status:'request-failed',error:safeAiError(result.error,apiKey)});throw new Error(`${scenario.name}: ${safeAiError(result.error, apiKey)}`);}
       assert.equal(calls - before, 1, 'Each scenario must issue exactly one HTTP request.');
       assert.equal(result.historyError, undefined);
       assert.ok(result.answer && !result.answer.includes(apiKey), 'Response must contain an answer without credentials.');
+      const observation={scenario:scenario.name,requestIndex:from+index,requests:calls,status:'received-not-validated',answer:result.answer,usage:result.usage};onObservation(observation);
       try { scenario.validate(result.answer); }
       catch (error) {
         let shape = 'non-JSON response';
         try { const value = JSON.parse(result.answer); shape = JSON.stringify({ keys: Object.keys(value), status: value.status, settingsKeys: value.settings && Object.keys(value.settings) }); } catch {}
+        onObservation({...observation,status:'validation-failed'});
         throw new Error(`${scenario.name}: validation failed (${shape}): ${error.message}`);
       }
       assert.ok(result.usage.promptTokens > 0); assert.ok(result.usage.completionTokens > 0);
       if (scenario.stream) { assert.ok(chunks.length > 0); assert.equal(chunks.at(-1).text, result.answer); }
       assert.equal(sender.listenerCount('destroyed'), 0);
+      onObservation({...observation,status:'passed'});
       inputTokens += result.usage.promptTokens; outputTokens += result.usage.completionTokens;
       log(`PASS ${scenario.name} (input=${result.usage.promptTokens}, output=${result.usage.completionTokens})`);
     }
@@ -125,11 +138,14 @@ async function runLiveAi({ apiKey, fetchImpl = globalThis.fetch, log = console.l
 async function main() {
   authorize(process.argv.slice(2));
   const from = Number(process.argv.find(arg => arg.startsWith('--from='))?.slice(7) || 0);
-  console.log(`Paid AI tests: ${cases.length - from} serial requests at most, gpt-4o-mini, ${MAX_COMPLETION_TOKENS} output tokens per request. Supply a temporary key on stdin.`);
+  const model=process.argv.find(arg=>arg.startsWith('--model='))?.slice(8)||'gpt-4o-mini',suite=process.argv.find(arg=>arg.startsWith('--suite='))?.slice(8)||'legacy';
+  console.log(`Paid AI tests: ${getCases(suite).length-from} serial requests at most, ${model}, ${model==='gpt-6-luna'?4096:MAX_COMPLETION_TOKENS} output tokens per request. Supply a temporary key on stdin.`);
   let apiKey = await readKey();
-  try { await runLiveAi({ apiKey, from }); }
-  catch (error) { throw new Error(safeAiError(error.message, apiKey)); }
-  finally { apiKey = ''; }
+  const report={model,suite,startedAt:new Date().toISOString(),observations:[]};const reportDir=path.resolve('local/ai-test-reports');fs.mkdirSync(reportDir,{recursive:true});const reportFile=path.join(reportDir,`smoke-${suite}-${Date.now()}.json`);
+  const save=()=>fs.writeFileSync(reportFile,JSON.stringify(report,null,2)+'\n',{mode:0o600});
+  try { const summary=await runLiveAi({ apiKey, from, model, suite, onObservation:observation=>{const existing=report.observations.findIndex(item=>item.requestIndex===observation.requestIndex);if(existing<0)report.observations.push(observation);else report.observations[existing]=observation;save();} });Object.assign(report,summary,{completedAt:new Date().toISOString()});save(); }
+  catch (error) { report.error=safeAiError(error.message,apiKey);save();throw new Error(report.error); }
+  finally { apiKey = '';console.log('Paid AI report: '+path.relative(process.cwd(),reportFile)); }
 }
 if (require.main === module) main().catch(error => { console.error(safeAiError(error.message)); process.exitCode = 1; });
-module.exports = { authorize, readKey, runLiveAi, cases, ENDPOINT, MAX_COMPLETION_TOKENS };
+module.exports = { authorize, readKey, runLiveAi, cases, ENDPOINT, MAX_COMPLETION_TOKENS, getCases };

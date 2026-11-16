@@ -433,7 +433,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                     >
                       <ListItemText 
                         primary={conn.environmentLabel?`${conn.environmentLabel} · ${conn.name}`:conn.name}
-                        secondary={`${conn.dbType === 'oracle' ? 'Oracle' : 'PostgreSQL'} - ${conn.database || t("not_set")}`}
+                        secondary={`${conn.dbType === 'oracle' ? 'Oracle' : conn.dbType === 'mysql' ? 'MySQL' : 'PostgreSQL'} - ${conn.database || t("not_set")}`}
                         primaryTypographyProps={{ fontWeight: config.name === conn.name ? 'bold' : 'normal', noWrap: true }}
                         secondaryTypographyProps={{ noWrap: true }}
                       />
@@ -472,9 +472,10 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               
               <FormControl fullWidth size="small">
                 <InputLabel>{t("database_type")}</InputLabel>
-                <Select value={config.dbType} label={t("database_type")} onChange={e => setConfig({...config, dbType: e.target.value})}>
+                <Select value={config.dbType} label={t("database_type")} onChange={e => { const dbType = e.target.value; setConfig({...config, dbType, port: dbType === 'mysql' ? '3306' : dbType === 'oracle' ? '1521' : '5432', useOsAuth: false, useSysdba: false, useSshTunnel: config.useSshTunnel }); setActiveTab(0); }}>
                   <MenuItem value="oracle">Oracle Database</MenuItem>
                   <MenuItem value="postgresql">PostgreSQL</MenuItem>
+                  <MenuItem value="mysql">MySQL 8.4</MenuItem>
                 </Select>
               </FormControl>
               
@@ -511,6 +512,15 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   />
                 </Box>
               )}
+
+              {config.dbType === 'mysql' && <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Alert severity="info">{t('mysql_initial_scope')}</Alert>
+                <TextField select size="small" label={t('security_tls_mode')} value={config.mysqlSslMode || 'disable'} onChange={event => setConfig({ ...config, mysqlSslMode: event.target.value === 'verify-full' ? 'verify-full' : 'disable' })}>
+                  <MenuItem value="disable">{t('security_tls_disabled')}</MenuItem>
+                  <MenuItem value="verify-full">{t('security_tls_verified')}</MenuItem>
+                </TextField>
+                {config.mysqlSslMode === 'verify-full' && <TextField size="small" label={t('security_tls_ca_file')} helperText={t('security_tls_ca_help')} value={config.mysqlSslCaFile || ''} onChange={event => setConfig({ ...config, mysqlSslCaFile: event.target.value })} />}
+              </Box>}
 
               {config.dbType === 'postgresql' && <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <TextField select size="small" label={t('security_tls_mode')} value={config.pgSslMode || 'disable'} onChange={event => setConfig({ ...config, pgSslMode: event.target.value === 'verify-full' ? 'verify-full' : 'disable' })}>

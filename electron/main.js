@@ -1,9 +1,15 @@
 // Copyright 2026 eiji ikemura
 // SPDX-License-Identifier: Apache-2.0
 
+const startupEntryTime = require('node:perf_hooks').performance.now();
+const startup = require('./startupDiagnostics').createStartupDiagnostics({ started: startupEntryTime });
+startup.mark('main:entry');
+startup.mark('imports:i18n:begin');
 const { t, setLanguage } = require('./i18n');
+startup.mark('imports:i18n:end');
 const { getStoragePaths, prepareStorage } = require('./services/storagePaths');
 const { app, BrowserWindow, ipcMain: nativeIpcMain, shell, clipboard, safeStorage, dialog, Menu, powerMonitor } = require('electron');
+startup.attach(app);
 const path = require('path');
 const appIconPath = path.join(__dirname, '../src/assets/icon.png');
 
@@ -17,21 +23,28 @@ const { createCredentialVault } = require('./services/credentials');
 const { createConnectionStore } = require('./services/connections');
 const { createAiSettingsStore } = require('./services/aiSettings');
 const { createSettingsStore } = require('./services/settings');
+startup.mark('imports:ipc:begin');
 const { registerAiHandlers } = require('./ipc/ai');
+startup.mark('imports:ai:complete');
 const { registerGitHandlers } = require('./ipc/git');
+startup.mark('imports:git:complete');
 const { registerErHandlers } = require('./ipc/er');
 const { registerFileHandlers } = require('./ipc/files');
+startup.mark('imports:database:begin');
 const { registerDatabaseHandlers } = require('./ipc/database');
+startup.mark('imports:complete');
 
 // Disable hardware acceleration.
 // Avoid slow rendering in virtual environments and with some graphics drivers.
 app.disableHardwareAcceleration();
 
-const paths = getStoragePaths();
+const paths = startup.measure('storage:paths', () => getStoragePaths());
 const { connectionsFile: CONNECTIONS_FILE, historyFile: HISTORY_FILE, aiSettingsFile: AI_CONFIG_FILE, settingsFile: SETTINGS_FILE, aiDirectory: AI_DIR } = paths;
 const credentialVault = createCredentialVault(safeStorage);
 const connectionStore = createConnectionStore(CONNECTIONS_FILE, credentialVault);
 const aiSettingsStore = createAiSettingsStore(AI_CONFIG_FILE, credentialVault);
+const loadAiSettings = aiSettingsStore.load;
+aiSettingsStore.load = () => startup.measure('ai-settings:load-and-decrypt', loadAiSettings);
 const settingsStore = createSettingsStore({ app, SETTINGS_FILE, t, setLanguage });
 const AI_USAGE_DIR = path.join(AI_DIR, 'history');
 const AI_SOURCE_DIR = path.join(AI_DIR, 'source');
@@ -56,16 +69,20 @@ const createSshHostVerifier = createSshHostKeyVerifier({
 });
 
 
+startup.mark('whenReady:wait');
 app.whenReady().then(() => {
+  startup.mark('whenReady:complete');
   // Apply the app identity before settings or credential initialization can pause startup.
-  if (process.platform === 'darwin') app.dock.setIcon(appIconPath);
+  if (process.platform === 'darwin') startup.measure('dock:icon', () => app.dock.setIcon(appIconPath));
 
-  prepareStorage(paths);
-  settingsStore.load();
+  startup.measure('storage:prepare', () => prepareStorage(paths));
+  startup.measure('settings:load', () => settingsStore.load());
   if (app.isPackaged) {
     Menu.setApplicationMenu(null);
   }
 
+  startup.mark('BrowserWindow:begin');
+  // Electron shows this window implicitly (the default show option is true).
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -78,6 +95,10 @@ app.whenReady().then(() => {
       sandbox: true
     }
   });
+
+  startup.mark('BrowserWindow:end');
+  startup.mark(mainWindow.isVisible?.() ? 'window:visible-after-constructor' : 'window:not-visible-after-constructor');
+  startup.mark('show:implicit-default:no-explicit-call');
 
   restrictBrowserPermissions(mainWindow.webContents.session);
   focusDiagnostics = startFocusDiagnostics({ app, window: mainWindow, powerMonitor });
@@ -118,15 +139,19 @@ app.whenReady().then(() => {
   });
 
   restrictAppNavigation(mainWindow.webContents, pagePolicy);
-  void mainWindow.loadURL(pagePolicy.entryUrl);
+  startup.mark(app.isPackaged ? 'loadURL:file:begin' : 'loadURL:dev-server:begin');
+  void mainWindow.loadURL(pagePolicy.entryUrl).then(() => {
+    startup.mark('loadURL:complete');
+  });
 }).catch(error => {
+  startup.mark('startup:failed');
   console.error('Application startup failed:', error.message);
   app.quit();
 });
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 ipcMain.handle('get-connections', () => {
-  try { return connectionStore.load(); }
+  try { return startup.measure('connections:load-and-decrypt', () => connectionStore.load()); }
   catch { throw new Error(t('failed_to_load_connections')); }
 });
 ipcMain.handle('save-connection', (_event, config, originalName) => {
@@ -151,7 +176,7 @@ ipcMain.handle('save-connections-order', (_event, connections) => {
 });
 
 ipcMain.handle('load-settings', () => {
-  return settingsStore.load();
+  return startup.measure('settings:ipc-load', () => settingsStore.load());
 });
 
 ipcMain.handle('save-settings', (event, settingsData) => {
@@ -178,3 +203,5 @@ registerGitHandlers({ ipcMain, gitDirectory: paths.gitDirectory, t });
 registerErHandlers({ getValidatedSettings: settingsStore.load, ipcMain, gitDirectory: paths.gitDirectory, t });
 registerFileHandlers({ getValidatedSettings: settingsStore.load, ipcMain, clipboard, dialog, getWindow: () => mainWindow, HISTORY_FILE, t });
 registerDatabaseHandlers({ getValidatedSettings: settingsStore.load, ipcMain, state, t, createSshHostVerifier });
+
+startup.mark('main:handlers-registered');

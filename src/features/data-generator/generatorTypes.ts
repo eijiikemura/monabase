@@ -11,6 +11,7 @@ export interface ColumnRule extends ColumnDefinition {
   DATA_LENGTH: number;
   NULLABLE: string;
   ruleType: RuleType;
+  generationExclusion?: 'auto_increment' | 'generated';
   nullRatio: number;
   seqStart: number | string;
   seqStep: number | string;

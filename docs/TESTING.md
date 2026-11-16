@@ -56,7 +56,7 @@ a test-only output-token cap and a simulated Electron sender. Scenarios cover:
 Only synthetic prompts/source/trace values are sent. Generated SQL is never executed;
 there are no DB connections, user files, real trace exports or external Git actions.
 Usage CSVs live in an isolated temporary directory removed on success or failure.
-Reports contain scenario names and token counts, never the key or full replies.
+The CLI saves synthetic replies, validation status and usage in Git-ignored `local/ai-test-reports/smoke-*.json` before validation, so a failed response can be inspected without resending. Keys are never included. The programmatic harness reports scenario names and token counts unless an observation callback is explicitly supplied.
 The deterministic guard tests cover refusal without approval/in CI, bounded stdin,
 HTTP failures, malformed responses and the complete mocked eight-request flow.
 
@@ -67,6 +67,26 @@ query-builder adoption or package generation. Existing mocked hook/component tes
 continue to cover review, approval, stale targets, history and cancellation without
 paid API requests. See the official [Chat Completions reference](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)
 for the response cap and streaming usage fields used here.
+
+MySQL source-generation fixtures share `SQL_GENERATION_SCOPE` with the production
+SQL editor and MySQL object editors. This rule distinguishes reference definitions
+from requested output: a SELECT request must not acquire setup DDL, and a view
+request must not acquire a reference table's CREATE statement. Native statement,
+read-only and object-identity validators still reject such responses. Mocked
+regressions include both kinds of DDL contamination; passing them does not imply
+that a revised prompt has passed another paid run.
+
+### Model and database suite selection
+
+```sh
+npm run test:ai:live -- --allow-paid --model=gpt-6-luna --suite=mixed
+```
+
+The default remains `--model=gpt-4o-mini --suite=legacy`. Explicit model selection accepts gpt-4o-mini, gpt-4.1-mini or gpt-6-luna; it never changes app settings. The test-only completion cap for gpt-6-luna is 4,096 tokens including reasoning, with the model's default reasoning setting. Other smoke models retain the 512-token cap. Every suite has at most eight serial requests, stops on the first failure and forbids automatic retries. Duplicate/unknown options and CI are rejected before key input. `--from=N` resumes only the uncompleted suffix in the same suite after an explicitly authorized investigation; successful cases must not be repeated.
+
+`legacy` retains the original eight cases. `mysql` covers SQL, procedure OUT parameters, deterministic functions, complete native triggers, query-builder JSON, range/index tuning, exact BIGINT generation rules and view identity using production parsers/validators. `mixed` uses eight cases across Oracle/PostgreSQL/MySQL: three SQL generations, a MySQL function, Oracle/PostgreSQL triggers, supplied-context MySQL tuning and data-generation JSON. These are transport, output-contract and fixture-content checks, not real-DB application or measured performance improvements; use the separate effect suites for those claims.
+
+Replies are saved before validation and updated with the final status; a failed HTTP call is recorded without a reply. Synthetic responses may contain SQL, so the private report remains local and is never applied automatically. Ordinary tests exercise all suite/model branches through in-process simulated responses without paid requests.
 
 ## Paid tuning-effect tests — dedicated real databases
 
@@ -1912,3 +1932,534 @@ use the separate `program-effect.cjs --verify=... --review-sha256=...` step desc
 above to apply exactly the reviewed file. Reports remain under ignored
 `local/ai-test-reports/`. Fixtures cover explicit requirements and boundary cases;
 a passing run is not a statistical before/after comparison of general AI accuracy.
+
+## Startup timing diagnostics
+
+The main process writes bounded JSON-lines diagnostics to `startup.jsonl` in
+Electron's `app.getPath('logs')` directory, before creating the first window.
+Typical installed paths are `~/Library/Logs/MonaBase/startup.jsonl` on macOS and
+`%APPDATA%\monabase\logs\startup.jsonl` on Windows (the application name may vary
+in development). Each row contains only UTC time, PID, a monotonic elapsed time
+from the JavaScript entry point, and an internal stage label. No connection
+settings, credential values, URLs, SQL, AI messages, or event payloads are logged.
+
+Milestones include imports, `app.whenReady()`, storage preparation, settings,
+`BrowserWindow` construction, `loadURL` (development HTTP or packaged file URL),
+`dom-ready`, `did-finish-load`, `ready-to-show`, and `show`. The current main
+window uses Electron's default visibility: there is no explicit `show()` call
+and no wait for `ready-to-show`. A label records this fact; diagnostics never
+change visibility or initialize a database. Constructor visibility is a separate
+snapshot and must not be confused with the native `show` event or a painted UI.
+
+Pair synchronous `:begin` / `:end` rows to identify a blocked operation.
+Connection and AI-settings loads also record the duration of credential
+restoration, without its contents. A process records at most 160 rows. When a
+log exceeds 1 MiB, the next launch rotates it to `startup.previous.jsonl`.
+Logging failures never interrupt startup.
+
+Compare the same build and storage mode, both first and subsequent launches.
+Record the time of the launch request as well: OS security checks and Windows
+Portable extraction happen **before** `main:entry` and are not included in
+`elapsedMs`. The electron-builder Portable launcher extracts before launching
+Electron and removes the extracted app after exit; naming a fixed extraction
+directory does not make it a persistent cache. Compare an installed build or
+an already extracted app on the same Windows machine before attributing the
+delay to application initialization. Do not disable antivirus to measure it.
+
+These logs require a build containing the diagnostics; older published builds
+do not acquire them automatically. Development-server startup (`npm run dev`
+waits for Vite's HTTP response) also precedes the Electron entry point. If a
+large local working tree stalls Vite dependency discovery, test with a separate
+configuration limiting `optimizeDeps.entries` to `index.html`; report that
+experimental condition rather than treating it as the normal development run.
+
+## MySQL 8.4
+
+The separate `npm run test:mysql` suite requires `MONABASE_MYSQL_DISPOSABLE=1` and the dedicated fixture. It never uses `local/db-tests.json` or an existing business DB. Setup, TLS fixtures, opt-in real UI execution, cleanup and limitations are documented in [MySQL](MYSQL.md#disposable-real-database-tests). The Integration workflow starts this disposable fixture in an independent Linux job. Normal tests include MySQL SQL-boundary/status/IPC checks; normal Electron tests use mock IPC for the MySQL workspace.
+
+MySQL Git/AI coverage uses native definitions, immutable local Git history and main-session context without changing pending rows. The optional real-renderer feature run and CI fixture settings are described in [MySQL Git and AI](MYSQL.md#git-and-ai). AI answers are deterministic fixtures; these checks never call a paid provider.
+
+The MySQL fixture tests also cover case-distinct tables, nested-view dependencies, SHOW CREATE privilege failures and immutable Git revisions. The AI feature UI fixture automatically answers only its known sidebar-close confirmations; no confirmation behavior is changed in the product.
+
+MySQL table coverage adds `tests/mysql-table.test.cjs` (query/DDL boundaries and destructive preview), `tests/mysql-table-controller.test.cjs` (loading, duplicate guards, transaction refresh and failure recovery), and `tests/mysql/table.test.cjs` (native catalog correctness, exact values, generated columns, optimistic conflicts, reversible DML and explicit DDL). The feature Electron test covers real cell/dialog edits, Commit/Rollback, reviewed table-comment changes and the six tabs with zero paid AI calls.
+
+`npm run test:ui` also starts an isolated Vite development server on a temporary local port/cache and runs the MySQL workspace smoke test against native development ES modules. This catches module-initialization cycles that the production bundler can mask. It does not use the developer's running server, personal connection settings or paid APIs. The shared ER table node lives in `src/features/er/TableNode.tsx` and imports no ER window/controller.
+
+To run only this development startup regression (without rebuilding distribution assets), use `node scripts/run-ui-tests.cjs --development-only`. Its dependency scan starts only from the application `index.html`, avoiding unrelated local HTML documents.
+
+MySQL table-sidebar coverage uses `tests/mysql-sidebar.test.cjs` for cached pagination, debounced/stale searches, failures, prototype-like database names, one-snapshot exports, partial imports and create/rename preview guards. `tests/mysql/sidebar.test.cjs` verifies native creation/defaults/keys, precise pending transfers, CTAS/rename/analyze/truncate/drop and a 101-table search across two pages. The feature Electron test executes the complete table context workflow and creation UI; the normal test:ui still uses mocked connections and checks both production and development loading.
+
+### MySQL SQL-window alignment
+
+`tests/mysql-sql-workspace.test.cjs` covers script boundaries, multi-row VALUES, single-statement IPC sequencing, error/cancellation stop, selection-only execution, privacy/history, exact plan snapshots and tuning metadata/bind redaction. `tests/mysql/sql-window.test.cjs` uses the disposable MySQL service to verify the fifteen-row fictional employee regression, pending-row isolation, Commit/Rollback, plan retrieval with savepoints, readonly planning and catalog-only tuning context. Run it with `MONABASE_MYSQL_DISPOSABLE=1 npm run test:mysql` after starting the existing fixture.
+
+`tests/e2e/mysql.cjs` also checks the real history/plan controls and external tuning-file export, plus the integrated tuning send preview when `MONABASE_MYSQL_UI_FEATURES=1`. AI responses are simulated and previews never require a live API key. History and export data remain isolated inside the test process/temporary profile; no personal settings/history files are used. Cancellation stops subsequent script statements without an implicit rollback.
+
+MySQL table parity coverage: `mysql-table-controller.test.cjs` checks header ascending/descending search, filter preservation, disabled/busy guards and metadata refresh. `mysql-ui-components.test.cjs` checks applied header decoration/native-menu disabling and direct shared table source with reload/error/retry handling. The real `tests/e2e/mysql.cjs` uses two fixture rows to verify actual DB sorting/filter marks, then records the native table source with the common Git component and checks its history. The tests use only disposable DB rows and isolated local Git repositories.
+
+MySQL split-pane checks: component tests cover the shared `VerticalSplit` composition and Structure/Statistics grid bounds; the existing SQL pane-layout test covers mouse movement, keyboard limits, window resize/blur and cleanup. `tests/e2e/mysql.cjs` drags the SQL, Data, Structure and Statistics dividers, checks that the lower pane shrinks as the upper grows, adjusts with ArrowUp, confirms that no SQL is executed by resizing, and verifies Structure size after tab switches.
+
+MySQL pending-work regression: `mysql-client.test.cjs` validates native tracker packets, capability negotiation, immutable packet data/offsets, row termination and the large-row guard; `mysql-ipc.test.cjs` keeps active-read status separate from the pending-write boolean. The disposable client suite checks ordinary SELECT/BEGIN, locking SELECT and a SELECT function that inserts into its own random MBT table, plus existing Commit/Rollback, savepoints, failed-DDL implicit commit, deadlocks, cancellation, ROW_COUNT and warning behavior. The function/table are cleaned up. Electron checks both buttons stay static after a plain table SELECT, pulse after INSERT and a subsequent SELECT, and reset after transaction completion. No live AI API is used.
+
+### MySQL data generation
+
+`node --test tests/mysql-generator.test.cjs` covers bound values, generated-column exclusion, exact numeric limits, read-only guards, preview/execution, mocked AI JSON, stale responses, offline export/import and the shared Oracle/MySQL panel. `MONABASE_MYSQL_DISPOSABLE=1 npm run test:mysql` includes `tests/mysql/generator.test.cjs`: generated columns, sequences, regex, decimal randomness, choices, NULL rates, dates/times, composite pending parent samples, preview consistency and rollback visibility. The opt-in MySQL Electron feature suite opens the native table picker and preview. No paid AI is used.
+
+### MySQL query builder
+
+`tests/mysql-builder.test.cjs` covers MySQL quoted identifiers, joins/aggregates/conditions, unsafe condition refusal, JSON round trips, undo/redo, native transaction forwarding, mocked AI reference/review/adoption/staleness, shared UI controls and failed/stale operations. `tests/mysql/builder.test.cjs` runs in the disposable MySQL fixture: table/view definitions, comments, composite joins, exact decimals, pending-row visibility, no implicit transaction completion and AI design adoption without execution. The opt-in `tests/e2e/mysql.cjs` feature flow imports a design, selects fields, drags a join, saves, previews/sends a mocked AI request, reviews/applies, executes, rolls back and adds a real view through the shared picker. `npm run test:ui` also preserves Oracle's complete builder flow after extraction of the shared UI/controller. Paid AI is not used.
+
+### MySQL cross-tabulation
+
+`tests/mysql-cross-tab.test.cjs` exercises conditional SQL, bound labels/values, cast/group validation, exact formatting, main-session feedback, safe settings/import staleness, failures/empty/over-limit retention, clipboard boundary and the shared Oracle/MySQL UI with all three chart types. `tests/mysql/cross-tab.test.cjs` covers all five aggregates, NULL behavior, exact DECIMAL, date/quarter/month and integer classes, text casts, filters, 201 real categories, views and rollback against the dedicated disposable MySQL fixture. `tests/e2e/mysql.cjs` opens the production window and exercises native setup, results, charts, JSON save/restore, filters, logs, views and explicit rollback. `tests/component-workflows.test.cjs` preserves the existing Oracle controller+view regression assertions after extracting the shared view. No paid AI requests are involved.
+
+### MySQL ER diagrams
+
+`tests/mysql-er.test.cjs` checks MySQL metadata, types/comments/keys, external-parent expansion, custom TABLE/VIEW selection, wrong-DB/schema refusal and MYSQL-scoped persistence. The shared ER editor regression matrix and real Git ER workflow now include MySQL in `tests/er-editor.test.cjs` and `tests/git-er-workflow.test.cjs`. `tests/mysql/er.test.cjs` uses disposable real tables/views and an isolated Git repository to verify composite relationships, direct-neighbor generation, exact native types/comments, virtual relations, save/load/commit/history, reviewed metadata sync, restore/undo and pending-row preservation. Use `MONABASE_GIT_TEST_ROOT=git/MonaBase/.test-runs MONABASE_MYSQL_DISPOSABLE=1 npm run test:mysql` for the scoped real suite. The opt-in MySQL Electron flow adds automatic ER generation, custom picker/relation creation and real Git history/restoration. No DB DDL is issued by ER actions; fixture DDL belongs only to the test setup/change/cleanup stages.
+
+
+### MySQL indexes
+
+`tests/mysql-index.test.cjs` covers SQL/identifier builders, exact native source extraction, table-scoped duplicate names, review/no-resend/transaction guards and actual component callbacks. `tests/mysql-sidebar.test.cjs` checks independent INDEX caches and refresh scoping. `tests/mysql/index.test.cjs` uses owned MBT fixtures for pending-data preservation, successful create/rename/visibility/drop, native implicit commit, changed-review rejection, functional/composite/prefix/descending keys, PK/FK protection and 105 indexes paged 100+5. The optional real-MySQL Electron flow in `tests/e2e/mysql.cjs` exercises category creation/open, table picker, preview, statistics/source, visibility, rename, exact-name deletion and list refresh. Run `MONABASE_MYSQL_DISPOSABLE=1 npm run test:mysql` for real DB coverage. Every created test table is removed; existing objects and external AI/Git services are not used by index tests.
+
+
+### MySQL views
+
+`tests/mysql-view.test.cjs` covers MySQL view headers/identity, statement boundaries and readonly/stored-program security restrictions, review/no-resend/native-state feedback, reload/stale/dependency failures and real view/category component callbacks. Existing table-data tests additionally check the readonly view mode hides mutation/import controls. Sidebar tests cover the independent VIEW cache and scoped refresh events. `tests/mysql/view.test.cjs` uses owned MBT objects and a local disposable Git repository for native options/types/references/dependents, exact and pending data, filtered complete export, rollback, reviewed compile/implicit commit/Git, native compile failure, deletion and 101-view pagination. The optional real-MySQL Electron flow opens all four tabs, preserves uncommitted data, exercises a mock AI draft before explicit compilation, reads native Git output and confirms exact-name deletion. No paid AI or external Git push is used. Run `MONABASE_GIT_TEST_ROOT=git/MonaBase/.test-runs MONABASE_MYSQL_DISPOSABLE=1 npm run test:mysql` and the existing `npm run test:ui` commands.
+
+The MySQL view regression also checks that failed Git recording/deletion never re-executes successful database DDL. SQL-window tests verify DDL invalidates all loaded object categories/schemas, including views, rather than refreshing TABLE only. Real UI tests filter for their own view name so concurrent disposable fixtures beyond the first 100 entries do not make the test assume an unpaged list.
+
+
+### MySQL triggers
+
+`tests/mysql-trigger.test.cjs` exercises body boundaries/compound flow, native AI identity, actual hook/view/category behavior, explicit review/recovery, readonly guards and no SQL resend after Git/DDL failure. `tests/mysql-ipc.test.cjs` covers dedicated routing and native-state propagation. `tests/mysql/trigger.test.cjs` uses owned MBT definitions for actual INSERT-trigger execution with IF/CASE/WHILE, rollback, middle-trigger order/settings preservation, stale rejection, failed replacement and explicit recovery, readonly/wrong-target rejection, exact deletion and actual controller-to-Git source compatibility. `tests/e2e/mysql.cjs` adds table-linked creation, real firing/rollback, mock AI adoption before explicit replace, native source/Git, sidebar deletion and table-list refresh. Trace coverage is described in the later MySQL trace sections. Run the existing scoped `test:mysql`, `test:ui` and normal `check` commands; paid AI and external Git push are not involved.
+
+
+### MySQL procedure regression checks
+
+`tests/mysql-procedure.test.cjs` covers the native-definition grammar, real controller, stale/error metadata, retained drafts and arguments, date normalization, readonly/busy guards, single reviewed attempts, partial replacement/recovery, actual-native-source Git inputs and sidebar/window callbacks. `tests/mysql-client.test.cjs` also checks continuation through multiple tracked CALL results; `tests/mysql-ipc.test.cjs` checks isolated metadata, transaction flags and SQL-batch reservation.
+
+With `MONABASE_MYSQL_DISPOSABLE=1 npm run test:mysql`, `tests/mysql/procedure.test.cjs` creates only random MBT procedures/tables in mb_test. It checks IN/OUT/INOUT, exact DECIMAL, multiple sets, NULL, escaped input, pending-row preservation, rollback, internal COMMIT, DDL implicit commit, replacement failure and explicit recovery, cancellation, empty-set limits and detection of protected-session changes. Fixtures are removed in finally, using a fresh connection if a test intentionally invalidates its own connection.
+
+The existing real-MySQL Electron feature flow now opens the inline Procedure category and the dedicated window, executes a saved routine with an input, inspects its information, drags the source/result split, adopts a deterministic mock AI answer, explicitly compiles it and inspects real local Git history. It uses no paid AI or external remote. Run the renderer build before this custom flow; do not overwrite dist while it runs. Windows-native visual behavior remains a separate platform check.
+
+
+### MySQL function regression checks
+
+`tests/mysql-function.test.cjs` covers RETURNS/RETURN grammar, unsafe definitions, native-kind routing, the real shared controller in FUNCTION mode, creation templates, retained drafts/arguments, metadata failure, native error/unknown state, readonly/busy guards, reviewed replacement/recovery, actual-source Git inputs, sidebar actions, the function layout wrapper and typed/formatted return display. `tests/mysql-ipc.test.cjs` checks the function channels and SQL-batch reservation. Existing procedure/trigger tests cover unchanged defaults of the reused implementation.
+
+`MONABASE_MYSQL_DISPOSABLE=1 npm run test:mysql` includes `tests/mysql/function.test.cjs`. It creates only random MBT functions/tables, checks scalar/NULL/precise-decimal/Unicode/date/binary returns, parameter metadata excluding the return row, pending-row visibility, function DML/Rollback, error preservation, stale/readonly guards, implicit DDL commit, definition/security/mode preservation, failed replacement and kind-scoped explicit recovery, then removes its own fixtures. The test does not alter server privileges or configuration.
+
+The real-MySQL Electron feature flow also creates a function through the sidebar, evaluates it with an input, resizes the result split, inspects information, reviews/adopts a deterministic mock AI response, proves the native source is unchanged before compilation, compiles explicitly, checks real Git source/history, copies the name and deletes with exact-name confirmation. It makes no paid AI request and no external Git push. Run the renderer build first and keep dist stable while this flow runs.
+
+
+### MySQL AUTO_INCREMENT regression checks
+
+`tests/mysql-auto-increment.test.cjs` covers every signed/unsigned integer limit, exact BIGINT text, unsafe/invalid input, qualified SQL, live SHOW CREATE parsing (including version comments and misleading quoted comments), cached-metadata replacement, unavailable-source failure, one reviewed attempt, exact-name confirmation and structure/readonly controls. `tests/mysql-table-controller.test.cjs` checks applied DDL followed by failed metadata retrieval without resending the ALTER.
+
+The opt-in disposable MySQL suite includes `tests/mysql/auto-increment.test.cjs`: create random MBT InnoDB tables, read fresh counters while retaining pending rows, change a counter and verify native implicit commit, verify Rollback behavior, preserve existing IDs, observe native adjustment of low requested values, use IDs above Number.MAX_SAFE_INTEGER exactly, reject missing auto columns/type overflow before DDL and confirm read-only refusal. Fixtures are removed in finally; no server setting/privilege is changed.
+
+The real-MySQL Electron feature flow also opens the table Structure control, reviews the ALTER and warning, confirms the exact table name, changes the counter, verifies the actual generated ID and refreshes the observed value after Rollback. Run the renderer build first; keep dist stable during this flow. It uses only the dedicated disposable DB and existing mock AI/local Git boundaries.
+
+
+### MySQL table column structure checks
+
+`tests/mysql-column-structure.test.cjs` exercises type/dimension separation, blank PK values, unique-key positions, attribute-preserving SQL, value binding, validation, collapsed categories and actual column-dialog callbacks (preview invalidation, exact-name confirmation, metadata failure, readonly and stale-definition refusal).
+
+The disposable suite includes `tests/mysql/column-structure.test.cjs`: random MBT InnoDB fixtures verify native metadata, pending-row preservation during background reads, implicit commit after column DDL, name/type/NULL/default/comment edits and additions, composite unique membership, charset/collation, fractional timestamps/ON UPDATE, AUTO_INCREMENT, generated formulas, invisible columns and bit defaults. Finally removes the fixture. No existing objects or server settings are modified. The real-MySQL Electron feature flow checks initially collapsed categories and edits column length/comment through the real SQL preview and exact-name confirmation, then checks the native catalog. Keep dist stable during the flow.
+
+
+### MySQL connection database as SQL default
+
+The SQL-window component regression verifies the absence of a schema selector and identical connection-database scope for execution, AI and tuning, while retaining qualified other-database SQL text. Mock Electron flows also retain another visible sidebar database. The real Electron flow first selects information_schema on the main connection and then verifies SQL-window SELECT DATABASE() restores the connection database. The disposable table suite opens an independent connection defaulting to information_schema and reads only its own MBT table/metadata from mb_test using qualified identities, verifying the reader default stays unchanged. It also switches defaults around a pending MBT insert, checks the unqualified read in mb_test and verifies Rollback still removes that insert. This needs no additional database, grants or server configuration.
+
+
+### MySQL CHECK constraint window checks
+
+`mysql-check-constraint.test.cjs` covers expression boundaries, exact quoted names, native nested CHECK extraction, one-ALTER rename/enforcement, read-only existing expressions, preflight conflicts, readonly/failed metadata, applied-DDL/refresh failure, explicit delete requests and structure-tab callbacks. The real component exposes source/copy and exact-name review. `tests/mysql/check-constraint.test.cjs` uses random MBT InnoDB fixtures to check native enforcement failures, NOT ENFORCED inserts/Rollback, failed re-enforcement with invalid rows, implicit DDL commit, atomic rename and duplicate-name failure preservation, quoted-name deletion and unrelated-constraint retention. Cleanup runs in finally. The real Electron feature flow creates from the table header, verifies no pre-preview mutation, reads/copies source, enables, renames, reopens without duplicate tabs and deletes through the parent grid with exact-name confirmation. No external AI or remote Git push is used.
+
+### MySQL DBA account tests
+
+- `tests/mysql-user-role.test.cjs` covers exact/protected identities, permission-limited self scope, masked and immutable review data, one-use/expired/connection-bound tokens, stale/readonly confirmation refusal, privilege injection, DEFINER protection, password error redaction, password clearing and selection handling. The real component follows the common DBA split.
+- `tests/mysql-ipc.test.cjs` covers metadata/state separation, SQL-batch exclusion and sanitized transport failures for the dedicated account channels. The standard desktop-contract test checks preload allowlists and request/result types.
+- `MONABASE_MYSQL_DISPOSABLE=1 npm run test:mysql` includes `tests/mysql/user-role.test.cjs`. The ordinary disposable test user only reads itself and SHOW GRANTS, verifies pending-row preservation and refused administration, and checks failed-authentication cleanup/reconnect. **It does not change users, roles, grants or server settings.**
+- Standard mock/real Electron flows check DBA menu routing, restricted own-account/grant display, protected actions, split resizing and main transaction preservation.
+
+Actual account changes are isolated from that ordinary environment. Create a **new disposable MySQL 8.4 instance**, bound to loopback, with its own administrator and an empty `mb_accounts` database. Never point the following tests at the shared mb_test server, a production instance or an existing user's environment. The tests refuse database mb_test/port 13306 and require the expected `SELECT @@server_uuid` value. A dedicated administrator is needed for CREATE USER, ordinary grants, ROLE_ADMIN and full DEFINER visibility. No privilege is automatically added to an existing environment.
+
+Save independent configuration outside Git (for example `local/mysql-account-disposable.json`, mode 0600): `host`, `port`, `database` (`mb_accounts`), `user`, `password`, and `serverUuid`. Pass only the file path on the command line; never include the password there or in logs.
+
+```sh
+MONABASE_MYSQL_ACCOUNT_DISPOSABLE=1 MONABASE_MYSQL_ACCOUNT_CONFIG=local/mysql-account-disposable.json node --test tests/disposable/mysql-account.test.cjs
+npm run build:renderer
+MONABASE_MYSQL_ACCOUNT_DISPOSABLE=1 MONABASE_MYSQL_ACCOUNT_CONFIG=local/mysql-account-disposable.json env -u ELECTRON_RUN_AS_NODE node_modules/.bin/electron tests/e2e/mysql-accounts.cjs
+```
+
+The native isolated suite creates random MBT accounts/roles/tables/views and checks actual logins, password replacement/rejection, lock/unlock, database grants/revokes, roles/default roles/cycle refusal, limits, stale/single-use reviews, DEFINER drop protection and native implicit commit. The isolated Electron flow uses the actual DBA screen for creation, masked review/confirmation, a database grant, resource limits, locking, password clearing and deletion. It never calls paid AI or remote Git. Both remove their own generated objects in finally; dispose of only the newly created test container and its temporary credentials afterwards. Authentication hashes are never retrieved for assertions.
+
+### MySQL object privileges
+
+`tests/mysql-object-privileges.test.cjs` verifies quoting, exact requests/confirmation, protected recipients, column grants, GRANT OPTION, partial catalogs, one-use/expired/stale/reconnected reviews, safe errors and failed-refresh/unknown outcomes, plus real hook and panel controls. `tests/mysql-ipc.test.cjs` checks the SQL-batch reservation and metadata/state separation.
+
+`MONABASE_MYSQL_DISPOSABLE=1 npm run test:mysql` includes `tests/mysql/object-privileges.test.cjs`: only this run's MBT table/view/routines are created, and account/grant changes are denied in the shared mb_test environment. Pending writes must survive all metadata reads and denied reviews.
+
+The independent `tests/disposable/mysql-account.test.cjs` also tests actual table/view/routine grants and revokes, same-name FUNCTION/PROCEDURE separation, column/GRANT OPTION protection, implicit commit and retained role-based access. Use its existing independent mb_accounts configuration and explicit `MONABASE_MYSQL_ACCOUNT_DISPOSABLE=1 MONABASE_MYSQL_ACCOUNT_CONFIG=local/mysql-account-disposable.json` guard; never use the normal db-tests.json or shared mb_test server. `tests/e2e/mysql-accounts.cjs` exercises the production DBA picker, recipient filter, SQL preview, exact confirmation and native GRANT/REVOKE against that same disposable server. Both clean only their own generated MBT objects/accounts.
+
+### MySQL sessions
+
+`tests/mysql-session.test.cjs` exercises the actual service/hook/panel: protected/fallback snapshots, exact counters, authentication-SQL redaction, unavailable instrumentation, read-only/unknown state, connection/thread ID reuse, statement changes, one-use/expired confirmations, unknown versus requested outcomes, stale/unconfirmed UI and no main-transaction overwrites. The shared IPC tests ensure MySQL-only routing and metadata/control responses without main transaction flags.
+
+The normal `MONABASE_MYSQL_DISPOSABLE=1 npm run test:mysql` includes `tests/mysql/session.test.cjs`, restricted to own-session reads, protected operations and pending work in this run's MBT table. Actual cancellation/termination belongs to `tests/disposable/mysql-account.test.cjs`, guarded by the existing independent mb_accounts/serverUuid opt-in. It creates a generated account and its own connection, confirms the PID from that connection, cancels a running statement, checks earlier pending rows survive and the connection is reusable, then terminates it and checks rollback/lock release. The actor's pending main-session work must remain unchanged.
+
+`tests/e2e/mysql-accounts.cjs` exercises production session selection, current SQL/detail, keyboard resizing, exact-ID review and native cancel/kill of its generated worker only. The ordinary MySQL production/development UI test covers safe entry and protected own sessions. Never cancel existing sessions or use the shared mb_test service for admin mutations; do not grant server permissions or modify instrumentation.
+
+### MySQL lock information
+
+`tests/mysql-lock.test.cjs` covers native modes, multiple blockers, inconsistent live samples, explicit catalog errors, transaction/lock changes, visible-SQL binding for cancellation, protected connections, single-use confirmations, unknown outcomes and real hook/panel filtering/navigation/guards. The shared IPC regression checks MySQL-only routing and no main transaction overwrites.
+
+The normal `MONABASE_MYSQL_DISPOSABLE=1 npm run test:mysql` includes `tests/mysql/lock.test.cjs`: only an own MBT table is created. A catalog-denied test first verifies the actual permission error, then verifies the service reports a failure with no false empty snapshot. If catalog access is available, own locks must be present and protected. Pending main work must survive reads.
+
+Actual contention and control use the existing independent mb_accounts/serverUuid opt-in in `tests/disposable/mysql-account.test.cjs`. Two fresh connections under this run's MBT account lock the same generated row; the tests verify waiter/blocker identities, table/index/current SQL, pending main work, cancellation and retained connection, stale review after release, and holder termination releasing the waiter. `tests/e2e/mysql-accounts.cjs` exercises the same topology through the production lock screen, including navigation from waiter to blocker and exact-ID confirmation. Ordinary production/development UI tests cover safe entry and explicit catalog denial. Existing connections and server privileges/instrumentation are never changed.
+
+
+## MySQL read-only tablespaces and storage
+
+`tests/mysql-tablespace.test.cjs` verifies real SQL safety checks, exact large
+byte counts, metadata absent from INNODB_TABLESPACES but present in FILES,
+partition-name preservation, permission/error redaction, invalid selections,
+limits, stale detail replies, StrictMode effect replay and read-only split/grid
+controls. `tests/mysql-ipc.test.cjs` checks database isolation and absence of
+transaction state in the responses.
+
+`MONABASE_MYSQL_DISPOSABLE=1 npm run test:mysql` includes
+`tests/mysql/tablespace.test.cjs`: the shared mb_test fixture checks actual
+catalog denial (or metadata if already accessible) and retention of pending MBT
+rows. It does not change grants. The independent, guarded MySQL account fixture
+also validates successful file-per-table metadata, exact sizes, files, table
+membership and unchanged main transaction state via
+`tests/disposable/mysql-account.test.cjs`. No tablespaces or physical files are
+created, changed or removed by these storage tests.
+
+`tests/e2e/mysql.cjs` opens the real screen with mocked metadata in the common UI
+suite or checks actual denial in the normal MySQL environment.
+`tests/e2e/mysql-accounts.cjs` opens real tablespace/file/table details in the
+independent MySQL fixture. All test containers/configuration are isolated and
+must be cleaned up after verification; existing DB permissions are preserved.
+
+
+## MySQL SSH and database information
+
+`tests/mysql-ssh.test.cjs` starts an ephemeral local ssh2 server: verified host
+keys, password/private-key authentication, refusal, separate channels and
+cleanup. Mocked driver tests additionally assert original TLS hostname/SNI
+configuration, three distinct channels, failed-handshake cleanup and transaction
+invalidation after tunnel loss. No external SSH endpoint is contacted.
+
+`tests/helpers/mysqlSsh.cjs` generates host/user keys in memory and accepts only
+synthetic fixture credentials. Its forwarding mode allows only loopback MySQL
+port 13306. `tests/mysql/ssh.test.cjs`, under the ordinary explicit disposable
+MySQL opt-in, connects through that server to the dedicated mb_test database:
+verified TLS with its test CA, SELECT/DML, Commit/Rollback, background metadata,
+cancellation and read-only policy. Generated keys/files and sockets are cleaned
+up. No existing SSH configuration or trusted-host store is changed.
+
+`tests/mysql-database.test.cjs` covers visible metadata/estimates, limits, errors,
+stale selections, read-only UI and export/split controls.
+`tests/mysql/database.test.cjs` creates only random MBT objects in mb_test to
+verify every supported object kind and unchanged pending rows. It neither
+creates/drops databases nor changes grants. Catalog visibility is explicitly
+partial according to privileges.
+
+`tests/e2e/mysql.cjs` covers the enabled login SSH tab and new DBA screen in the
+common production/development UI suite. For real UI over a local SSH fixture:
+
+```sh
+MONABASE_MYSQL_DISPOSABLE=1 MONABASE_MYSQL_UI_SSH=1 env -u ELECTRON_RUN_AS_NODE node_modules/.bin/electron tests/e2e/mysql.cjs
+```
+
+This uses synthetic SSH credentials and the configured dedicated MySQL test CA;
+it does not read personal SSH files, connect to production or call paid AI.
+
+
+## MySQL real AI trace effect tests
+
+Normal check/UI/MySQL/CI tests never send paid requests. The maintainer must
+explicitly authorize this run and provide a temporary key or authorize reuse.
+Use the existing dedicated trace command:
+
+```sh
+npm run test:ai:trace -- --mysql --allow-paid
+```
+
+`tests/live-ai/mysql-trace-effect.cjs` uses fixed gpt-6-luna, 4,096 output tokens
+including reasoning, synthetic mb_test routines and the production recording,
+persistence, get-trace-for-ai and prompt hook. It initially needs two diagnoses
+(function/procedure). The run's ignored JSON ledger caps cumulative HTTP requests
+at **10 including failures/resumes**, with one HTTP attempt per case and no
+automatic transport retries. API keys are non-echo stdin/memory only. CI, unknown
+flags and arbitrary resume paths are refused. Never reuse an earlier approval
+for another task. The 10-request budget applies only when the user explicitly
+permits that budget, as in this implementation's verification.
+
+Failed replies and usage are saved before validation in
+`local/ai-test-reports/mysql-trace-effect-*.json`. After investigation, resume only
+unfinished cases with `--resume=THE_BASENAME.json`. If only the validator was
+wrong, verify the saved answer with no API request instead:
+
+```sh
+MONABASE_MYSQL_DISPOSABLE=1 npm run test:ai:trace -- --mysql --verify-saved=THE_BASENAME.json
+```
+
+The diagnosis must identify the actual original line, third loop iteration,
+recorded before/after values and real evidence step IDs. Exact decimal strings
+such as "30.00" are accepted alongside small numeric values; values are not
+silently rounded. Only the pre-reviewed subtraction-to-addition fixture repair
+is applicable. A separate fixed MBT routine is compiled and executed for 0, 1,
+5 and NULL inputs, then traced again to verify 90→150 and the corrected third
+iteration total. Free SQL/trace validation is not counted as an AI call. No
+arbitrary AI SQL is executed. Every MBT definition, worker/copy and temporary
+trace directory is cleaned up; raw paid answers/usage remain for review without
+secrets. Preserve failures in the report rather than substituting model output.
+
+`tests/mysql-trace.test.cjs` covers instrumentation safety, call/session-var
+refusal, exact lines, HTML escaping, persistence, UI controls and paid guards.
+`tests/mysql/trace.test.cjs` checks native function/procedure evidence, exact
+BIGINT/NULL, pending-write refusal, stale source, incomplete record limits and
+absence of the owned copy afterward. `tests/mysql/trace-ai.test.cjs` verifies the
+full prompt and narrowly reviewed repair with a mocked answer and no paid calls.
+`tests/e2e/mysql.cjs` feature mode opens the real trace tab, records/replays values
+and checks AI send-preview evidence without sending to a paid service.
+
+
+### MySQL trigger trace tests
+
+`tests/mysql-trigger-trace.test.cjs` covers row-reference grammar, OLD/NEW/input
+validation, read-only/draft guards, real UI callbacks, collision ownership,
+uncertain CREATE refusal and fresh paid-test authorization. Dedicated native
+`tests/mysql/trigger-trace.test.cjs` checks all six timing/event combinations,
+original-row/definition preservation, generated IDs, exact decimals, SQL NULL,
+stale definitions, pending main work, bounded incomplete execution and cleanup.
+`tests/mysql/trigger-trace-ai.test.cjs` executes persisted records through the
+production AI prompt and verifies a narrowly reviewed repair with a fake answer;
+it never calls an AI service. `tests/e2e/mysql.cjs` feature mode additionally
+records a real trigger, replays NEW fields, moves the split, checks idle transaction
+buttons and inspects the AI preview without paid requests.
+
+The optional live runner requires new explicit user authorization and a temporary
+key via non-echo stdin. Never run it in ordinary checks, CI or on old permission:
+
+```sh
+MONABASE_MYSQL_DISPOSABLE=1 npm run test:ai:trace -- --mysql-trigger --allow-paid
+# Resume only unfinished cases under the same explicitly authorized request:
+MONABASE_MYSQL_DISPOSABLE=1 npm run test:ai:trace -- --mysql-trigger --allow-paid --resume=mysql-trigger-trace-effect-TIMESTAMP.json
+```
+
+The runner uses gpt-6-luna, at most 4096 output tokens per call and a persistent
+10-request ceiling. A fresh run initially requests two diagnoses (BEFORE INSERT
+and BEFORE UPDATE). It stores every raw answer and usage before judging original
+body line, iteration, actual before/after values and an array of real evidence
+IDs. Only a reviewed subtraction-to-addition on this run's MBT trigger is applied.
+Native 0/1/5/NULL cases and retracing must prove 90→150 while original fixture
+rows remain untouched. Unknown/failed requests count; successful cases are not
+resent by resume. Failed answers remain failures even when a later attempt passes.
+All owned DB objects and temporary traces are removed; reports contain no key.
+
+
+### MySQL extended controls, database changes and definition imports
+
+`tests/mysql-expansion.test.cjs` verifies delimiter/quote/comment boundaries,
+bounded definition grammar, cross-database/duplicate/session/file refusals,
+label scopes, one-use reviews, drift/unknown outcomes and actual dialog callbacks.
+`tests/mysql/trace-controls.test.cjs` compares native and recorded CASE/WHILE/LOOP/
+REPEAT/LEAVE/ITERATE behavior in functions, procedures and triggers, including NULL,
+outer-block exits and bounded endless loops. `tests/mysql/definition-import.test.cjs`
+uses only random MBT definitions in the dedicated schema, proving real create/replace,
+preflight drift refusal without DDL, partial failure, rollback of invoked fixture
+DML and explicit original-trigger recovery. These run in test:mysql, without AI.
+
+Database-level writes use a **separate newly created Docker container**, not the
+normal dedicated schema or its existing privileges. The helper pins the same image,
+binds an ephemeral port only to loopback, uses disposable credentials and removes
+only its own randomly named container on success/failure. No existing server grants,
+settings or databases are changed. The test proves CREATE/ALTER, one-use tickets,
+review drift, unchanged pending work, and that existing column collations do not
+change when database defaults do. Run with Docker available:
+
+```sh
+MONABASE_MYSQL_DATABASE_DISPOSABLE=1 npm run test:mysql:database
+```
+
+CI's MySQL job runs that isolated suite explicitly. For actual database create/
+change GUI coverage, build the renderer first, then run the existing Electron
+harness in its short, separate database-management mode:
+
+```sh
+MONABASE_MYSQL_DISPOSABLE=1 MONABASE_MYSQL_DATABASE_DISPOSABLE=1 MONABASE_MYSQL_UI_DATABASE=1 env -u ELECTRON_RUN_AS_NODE node_modules/.bin/electron tests/e2e/mysql.cjs
+```
+
+Feature mode additionally imports a mixed definition file through the actual UI,
+reviews every target, applies once, verifies native behavior and records successful
+DB sources in a temporary Git repository. It never sends a paid AI request.
+
+
+### MySQL typed binds, dependencies and isolated SQL trace regressions
+
+`tests/mysql-next-parity.test.cjs` exercises incomplete editor text, selected
+placeholder discovery, exact number/date casts, empty/NULL behavior, actual bind
+and dependency components, false-reference exclusion, fixture metadata readiness,
+prototype-safe fixture validation and strict SQL rewrite/refusal (including
+alias-qualified function escapes). New components are listed in
+[the component inventory](COMPONENT_TEST_COVERAGE.md).
+
+`tests/mysql/binds-dependencies.test.cjs` uses the actual MySQL 8.4 connection to
+check exact large decimals, numeric JSON types, native datetime precision, empty
+text/NULL, confirmed view-to-function catalog edges and inferred routine/trigger
+callers. Metadata preserves pending DML; stale source fingerprints are rejected.
+`tests/mysql/trace-sql.test.cjs` compares native and traced cursor/NOT FOUND flows,
+explicit/empty fixtures, SELECT INTO and INSERT/UPDATE/DELETE, duplicate-key
+handlers, EXIT, SIGNAL/RESIGNAL, missing RETURN and handler-resistant bounds.
+It verifies runtime handler loop paths, row-growth stopping, persisted evidence,
+original-row preservation and isolated trigger audit writes. Only run-owned MBT
+fixtures are created/dropped, with rollback and copy/trace cleanup on failure.
+These run in the existing opt-in `MONABASE_MYSQL_DISPOSABLE=1 npm run test:mysql`.
+
+The feature mode of `tests/e2e/mysql.cjs` uses the production renderer and real
+MySQL to enter typed binds (including exact decimal/date/NULL), follow a routine's
+reference into its table window, enter explicit trace rows and replay a cursor
+with a NOT FOUND handler. External AI is mocked; no paid request is sent. Existing
+Oracle/PostgreSQL regressions and common UI tests still apply to shared IPC and
+AI-prompt changes. macOS UI checks do not establish native Windows behavior.
+
+
+### MySQL error navigation, completion and nested block regressions
+
+`tests/mysql-editor-nested.test.cjs` checks local/parameter discovery, shadowing,
+comment/string exclusion, CASE expressions, actual CodeMirror completion sources,
+stale lint refusal, line-offset validation and compiler scope/depth guards.
+`tests/mysql-sql-workspace.test.cjs` covers selected-source line mapping and private
+execution never exposing a location. Existing editor boundary tests mock the new
+shared hook while the dedicated tests execute it.
+
+`tests/mysql/editor-nested.test.cjs`, included in `test:mysql`, compares native and
+recorded shadowed variable types, labelled LEAVE, nested EXIT/CONTINUE handlers,
+RESIGNAL, loop-local cursors, nested handler-loop origin paths, handler-resistant recording limits and actual
+trigger NEW assignments. It verifies original rows remain unchanged and parser
+lines are native (unknown-column errors do not invent locations). Run-owned MBT
+routines/tables/triggers and temporary traces are cleaned on failure or success.
+The Electron MySQL feature scenario checks real multiline error navigation and
+stale-highlight removal, actual local completion, and an isolated cursor trace
+with an inner variable block. AI stays mocked; no paid API call is involved.
+
+### MySQL niche trigger semantics and unsupported grammar
+
+`tests/mysql/trigger-niche.test.cjs` is included automatically by `test:mysql`
+(and the existing MySQL integration job). It creates only randomly named MBT
+objects in the disposable `mb_test` database and uses temporary trace storage.
+Each supported case runs natively first, rolls back, then records the same inputs
+on isolated copies and compares exact textual row results, persisted source/step
+counts, source-relative line bounds and unchanged original rows.
+
+| Scenario | Expected validation |
+| --- | --- |
+| CASE without a matching branch/ELSE | Native error 1339 invokes the numeric CONTINUE handler |
+| NULL-safe OLD/NEW comparison (`<=>`) | NULL equals NULL without changing ordinary IF behavior |
+| DECIMAL beyond JavaScript integer precision | Exact fractional arithmetic in rows and variable evidence |
+| Escaped Unicode, quotes, newlines and literal `[SQL NULL]` | Original text and JSON-quoted string evidence remain distinct from SQL NULL |
+| Error-code / SQLSTATE / SQLEXCEPTION handlers | Native handler precedence selects the specific numeric handler |
+| SQLWARNING SIGNAL | Warning handler runs, then execution continues |
+| Labelled whole-trigger LEAVE | Later assignments are absent from results and evidence |
+| Inner EXIT handler | Only its declaring block exits; NEW changes survive into the outer block |
+| Multi-column cursor and FETCH NEXT FROM | Explicit fixture rows, NOT FOUND and the final fetch iteration are recorded |
+| REPEAT with ITERATE | Native UNTIL behavior and iteration paths match |
+| Unhandled RESIGNAL | Native failure is marked incomplete; original rows remain unchanged |
+| Other triggers on the same table | Native integration includes peers, while trace explicitly records only the selected trigger |
+
+Seven natively valid forms are separately verified and then rejected before any
+trace worker opens: named CONDITION, GET STACKED DIAGNOSTICS, JOIN SELECT,
+scalar subqueries, procedure CALL, CASE expressions and wildcard SELECT INTO.
+A previous recording for that same trigger identity is retained after refusal.
+`COUNT(*)` remains allowed; only a bare wildcard projection is refused.
+This distinction prevents a test from claiming that all MySQL syntax is supported.
+
+Raw baseline driver errors use SHOW WARNINGS to observe native status before
+cleanup, matching the application's diagnostics/status policy. Line assertions
+use the actual saved ACTION_STATEMENT because MySQL can normalize stored text.
+All test-owned definitions, copied tables and temporary recordings are removed.
+No real AI request, privilege change or existing-user object mutation is involved.
+
+### MySQL niche function semantics and return values
+
+`tests/mysql/function-niche.test.cjs` runs automatically in `test:mysql` and the
+existing MySQL integration job. It creates random MBT functions plus an owned
+InnoDB fixture table/procedure and uses temporary trace storage. Successful cases
+compare the real native return with an independent expected value and the
+production trace's return. Saved source SHA-256, source-relative line numbers,
+return values, step counts and original rows are also checked.
+
+| Supported scenario | Checked behavior |
+| --- | --- |
+| Unsigned BIGINT maximum | `18446744073709551615` remains exact in inputs, arithmetic, evidence and return |
+| DECIMAL with different input/return scales | Full input precision remains in variables; only the native RETURNS scale rounds the result |
+| Unicode, quotes/newlines and literal `[SQL NULL]` | JSON-quoted text remains distinct from an actual NULL parameter/return |
+| Literal empty-string return | Empty text remains empty rather than becoming NULL |
+| DATE / DATETIME(6) / negative TIME(6) | Leap day, microseconds and a negative time exceeding 24 hours remain exact |
+| Short-circuit IF | The unchosen division-by-zero expression is not evaluated; NULL behavior is preserved |
+| Nested-loop early RETURN | Correct loop iteration is recorded and later RETURN is not executed |
+| RETURN inside an EXIT handler | Native no-match CASE handling returns from the function |
+| Nested typed shadowing and block LEAVE | Inner text and outer numeric values remain separate |
+| Multi-column cursor / NOT FOUND | Explicit fixture rows yield the native result; empty fixtures never copy original rows |
+| No-row SELECT INTO | NOT FOUND handler determines the final return |
+| Function DML | Native baseline writes are rolled back; recording writes only isolated copies |
+
+Unhandled RESIGNAL, runtime missing RETURN and unsigned overflow are separately
+compared with native error codes; each recording is incomplete with no successful
+return. Nine other natively valid forms are deliberately refused before any trace
+worker opens: named CONDITION, GET STACKED DIAGNOSTICS, JOIN SELECT, a RETURN
+subquery, procedure CALL, RETURN CASE expression, wildcard SELECT, JSON return
+type, and a root-block local with the same name as a parameter. Earlier saved
+records for each identity remain unchanged. This does not expand supported syntax.
+Nested-block shadowing remains supported; parameter/root-local collisions do not.
+
+The suite contains 24 scenarios plus its parent (25 test counts), with multiple
+input variants inside several cases. It rolls back and drops only acknowledged
+run-owned objects, removes temporary trace files, and makes no paid AI request or
+server/privilege change. Line assertions use the database's saved CREATE FUNCTION,
+including its header, rather than fixed line numbers in the input body.
+
+### MySQL niche procedure arguments, handlers and result boundaries
+
+`tests/mysql/procedure-niche.test.cjs` is picked up by the existing `test:mysql`
+command and MySQL integration job. Each successful case executes the real native
+CALL, checks independently expected OUT/INOUT values, rolls back baseline DML,
+and compares the production trace and its saved source/hash/steps/outputs.
+Native caller variables are cleared after every CALL. OUT caller variables start
+with a sentinel to verify that MySQL resets OUT parameters to NULL on entry.
+
+The 16 supported scenarios cover mixed IN/OUT/INOUT and precise decimals,
+unsigned BIGINT limits, DATE/DATETIME(6)/negative TIME(6), multiple string outputs
+and NULL/empty values, outer-block LEAVE, no-match/NULL CASE, LOOP/REPEAT/ITERATE,
+scoped shadowing, cursor reopen and NOT FOUND, handled duplicate-key DML,
+no-row SELECT INTO, handler precedence, warning SIGNAL, inner EXIT/RESIGNAL,
+nested handler-loop paths and a parameterless procedure without a result set.
+A single SET procedure is tested without requiring a BEGIN/END wrapper; assignment
+remains limited to validated arguments/locals, with a normal-unit guard against
+external user-variable assignment in `tests/mysql-trace.test.cjs`.
+
+Two runtime failures (DML then unhandled RESIGNAL; unsigned INOUT overflow) must
+retain native error codes and expose no successful final outputs. Input conversion
+failure before the first snapshot preserves a previous recording. A natively
+valid 1,000-iteration loop must be incomplete at the 2,000-snapshot budget, with no
+partial OUT reported as final.
+
+Twelve natively valid forms are refused before any worker opens, keeping prior
+evidence: named CONDITION, GET STACKED DIAGNOSTICS, JOIN, scalar subquery, nested
+CALL, CASE expression, wildcard SELECT, multiple SELECT result sets, COMMIT,
+JSON OUT, a root-local colliding with a parameter, and an explicit parameter
+charset/collation modifier absent from the supported parameter metadata contract.
+Multiple result sets are supported by ordinary procedure execution; this refusal
+applies specifically to trace recording and never silently discards those sets.
+
+The suite has 32 scenarios plus its parent (33 test counts), uses only run-owned
+MBT objects and temporary traces, and makes no paid AI call or privilege/server
+configuration change. Both baseline and traced writes leave the original owned
+table's sum unchanged after rollback.

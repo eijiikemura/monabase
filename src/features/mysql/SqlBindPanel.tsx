@@ -1,0 +1,9 @@
+// Copyright 2026 eiji ikemura
+// SPDX-License-Identifier: Apache-2.0
+import {Box,Checkbox,FormControlLabel,MenuItem,TextField,Typography} from '@mui/material';
+import {useTranslation} from 'react-i18next';
+import DateInput from '@/components/data/DateInput';
+import type {MysqlBinding} from './sqlBindings';
+export default function SqlBindPanel({names,bindings,onChange,disabled,inputFormat}:{names:string[];bindings:Record<string,MysqlBinding>;onChange:(name:string,value:MysqlBinding)=>void;disabled:boolean;inputFormat:string}){
+ const {t}=useTranslation();return <Box data-testid="mysql-bind-panel" sx={{p:2,overflow:'auto',display:'flex',flexDirection:'column',gap:2}}>{!names.length&&<Typography>{t('mysql_bind_empty')}</Typography>}{names.map(name=>{const value=bindings[name]||{type:'STRING' as const,value:'',isNull:false};return <Box key={name} sx={{p:1,border:1,borderColor:'divider',borderRadius:1}}><Typography fontWeight="bold">:{name}</Typography><TextField select fullWidth size="small" label={t('type')} value={value.type} disabled={disabled} onChange={e=>onChange(name,{...value,type:e.target.value as MysqlBinding['type']})}>{(['STRING','NUMBER','DATE'] as const).map(type=><MenuItem key={type} value={type}>{t(type==='STRING'?'text':type==='NUMBER'?'number':'date')}</MenuItem>)}</TextField><FormControlLabel label="NULL" control={<Checkbox size="small" checked={value.isNull} disabled={disabled} onChange={e=>onChange(name,{...value,isNull:e.target.checked})}/>}/>{value.type==='DATE'?<DateInput value={value.value} onChange={text=>onChange(name,{...value,value:text})} inputDateFormat={inputFormat} disabled={disabled||value.isNull}/>:<TextField fullWidth size="small" label={t('value')} value={value.value} disabled={disabled||value.isNull} onChange={e=>onChange(name,{...value,value:e.target.value})} inputProps={{'data-mysql-bind':name}}/>}</Box>;})}</Box>;
+}

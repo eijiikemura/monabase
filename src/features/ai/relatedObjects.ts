@@ -7,7 +7,19 @@ import { OBJECT_CATEGORIES } from '../objects/objectRepository';
 
 export async function listRelatedObjects(object: DatabaseObject): Promise<DatabaseObject[]> {
   let sql: string;
-  if (object.dbType === 'oracle') {
+  if (object.dbType === 'mysql') {
+    if (object.category === 'TABLE') sql = `SELECT DISTINCT REFERENCED_TABLE_SCHEMA AS "schema", REFERENCED_TABLE_NAME AS name, 'TABLE' AS category
+      FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=:schema AND TABLE_NAME=:name AND REFERENCED_TABLE_NAME IS NOT NULL
+      ORDER BY REFERENCED_TABLE_SCHEMA, REFERENCED_TABLE_NAME LIMIT 100`;
+    else if (object.category === 'VIEW') sql = `SELECT d.TABLE_SCHEMA AS "schema", d.TABLE_NAME AS name,
+      CASE WHEN t.TABLE_TYPE='VIEW' THEN 'VIEW' ELSE 'TABLE' END AS category
+      FROM information_schema.VIEW_TABLE_USAGE d JOIN information_schema.TABLES t
+        ON CAST(t.TABLE_SCHEMA AS BINARY)=CAST(d.TABLE_SCHEMA AS BINARY) AND CAST(t.TABLE_NAME AS BINARY)=CAST(d.TABLE_NAME AS BINARY)
+      WHERE d.VIEW_SCHEMA=:schema AND d.VIEW_NAME=:name ORDER BY d.TABLE_SCHEMA,d.TABLE_NAME LIMIT 100`;
+    else if (object.category === 'TRIGGER') sql = `SELECT EVENT_OBJECT_SCHEMA AS "schema", EVENT_OBJECT_TABLE AS name, 'TABLE' AS category
+      FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=:schema AND TRIGGER_NAME=:name LIMIT 1`;
+    else return [];
+  } else if (object.dbType === 'oracle') {
     sql = `SELECT DISTINCT * FROM (SELECT d.REFERENCED_OWNER AS "schema", d.REFERENCED_NAME AS "name",
       d.REFERENCED_TYPE AS "category" FROM ALL_DEPENDENCIES d
       JOIN ALL_USERS u ON u.USERNAME = d.REFERENCED_OWNER AND u.ORACLE_MAINTAINED = 'N'
@@ -43,7 +55,7 @@ export async function listRelatedObjects(object: DatabaseObject): Promise<Databa
     ) SELECT DISTINCT * FROM candidates WHERE schema <> 'information_schema' AND schema NOT LIKE 'pg!_%' ESCAPE '!'
     ORDER BY schema, category, "displayName", id LIMIT 100`;
   }
-  const result = await ipcRenderer.invoke('execute-sql-bg', sql, object.dbType === 'oracle'
+  const result = await ipcRenderer.invoke('execute-sql-bg', sql, object.dbType !== 'postgresql'
     ? { schema: object.schema, name: object.name, category: object.category }
     : { id: object.id!, category: object.category });
   if (!result.success) throw new Error('Related objects could not be loaded.');

@@ -15,10 +15,10 @@ let queue = Promise.resolve();
 // Only non-secret destination fields participate; labels and credentials never do.
 function createAiHistoryScope(config) {
   const dbType = config.dbType === 'postgres' ? 'postgresql' : config.dbType;
-  if (!['oracle', 'postgresql'].includes(dbType)) throw new Error('Invalid AI history database.');
+  if (!['oracle', 'postgresql', 'mysql'].includes(dbType)) throw new Error('Invalid AI history database.');
   const tunnel = Boolean(config.useSshTunnel);
   const destination = {
-    dbType, host: config.host || '127.0.0.1', port: String(config.port || (dbType === 'oracle' ? 1521 : 5432)),
+    dbType, host: dbType === 'mysql' ? (config.host || '127.0.0.1').trim() : config.host || '127.0.0.1', port: String(config.port || (dbType === 'oracle' ? 1521 : dbType === 'mysql' ? 3306 : 5432)),
     database: config.database || '', user: config.user || '',
     useOsAuth: Boolean(config.useOsAuth), useSysdba: Boolean(config.useSysdba),
     ssh: tunnel ? { host: config.sshHost || '127.0.0.1', port: String(config.sshPort || 22), user: config.sshUser || '' } : null
@@ -27,8 +27,9 @@ function createAiHistoryScope(config) {
 }
 
 function validateIdentity(value) {
-  if (!value || !/^[a-f0-9]{64}$/.test(value.connectionScope) || !['oracle', 'postgresql'].includes(value.dbType) ||
+  if (!value || !/^[a-f0-9]{64}$/.test(value.connectionScope) || !['oracle', 'postgresql', 'mysql'].includes(value.dbType) ||
       !categories.includes(value.category) ||
+      (value.dbType === 'mysql' && !['FUNCTION', 'PROCEDURE', 'TRIGGER'].includes(value.category)) ||
       typeof value.schema !== 'string' || !value.schema.trim() ||
       typeof value.objectName !== 'string' || !value.objectName.trim()) {
     throw new Error('AI会話の保存対象が不正です。');

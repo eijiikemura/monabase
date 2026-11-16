@@ -1,0 +1,51 @@
+// Copyright 2026 eiji ikemura
+// SPDX-License-Identifier: Apache-2.0
+const {test}=require('node:test');const assert=require('node:assert/strict');const {loadModule}=require('./helpers/loadModule.cjs');const {createHookHarness}=require('./helpers/renderHook.cjs');const {loadTypeScript}=require('./helpers/loadTypeScript.cjs');const {componentHarness}=require('./helpers/componentHarness.cjs');
+const account={user:"a'lice",host:'localhost'},object={schema:'demo',name:'t`x',type:'TABLE'},key=a=>JSON.stringify([a.user,a.host]);
+function fixture(){
+ const data={grants:[],columns:[],status:'active',runs:[],full:true,version:0,fail:false,refreshFail:false};
+ const principals=[{...account,id:key(account),protected:false,self:false,referencedRole:false},{user:'root',host:'localhost',id:'root',protected:true,self:true}];
+ const service=loadModule('electron/mysql/objectPrivileges.js',{'./userRoleService':{list:async()=>({success:true,snapshot:{accounts:principals,context:{scope:data.full?'all':'self',canGrant:true,current:{user:'root',host:'localhost'},server:'fixture'}}})}},{},{strict:false});
+ const client={main:{threadId:7},readonly:false,closing:false,enqueue:fn=>fn(),getTransactionDetails:()=>({transactionStatus:data.status,hasUncommittedTx:data.status==='active'}),execute:async(sql,binds)=>{
+ if(data.refreshFail&&data.runs.length)throw new Error('sentinel-secret');
+ if(sql.includes('information_schema.TABLES'))return {rows:[{TABLE_TYPE:binds.type==='VIEW'?'VIEW':'BASE TABLE',CREATE_TIME:data.version}]};
+ if(sql.includes('information_schema.ROUTINES'))return {rows:[{ROUTINE_TYPE:binds.type,CREATED:data.version}]};
+ if(sql.startsWith('SHOW CREATE'))return {rows:[{['Create '+sql.split(' ')[2].toLowerCase().replace(/^./,c=>c.toUpperCase())]:'CREATE definition '+data.version}]};
+ if(sql.includes('information_schema.COLUMNS'))return {rows:[{COLUMN_NAME:'id',COLUMN_TYPE:'int',version:data.version}]};
+ if(sql.includes('mysql.tables_priv'))return {rows:data.grants.map(privilege=>({User:account.user,Host:account.host,Table_priv:privilege,Grantor:'operator@localhost'}))};
+ if(sql.includes('mysql.procs_priv'))return {rows:data.grants.map(privilege=>({User:account.user,Host:account.host,Proc_priv:privilege,Grantor:'operator@localhost'}))};
+ if(sql.includes('mysql.columns_priv'))return {rows:data.columns.map(privilege=>({User:account.user,Host:account.host,Column_name:'id',Column_priv:privilege}))};
+ if(sql.includes('_PRIVILEGES'))return {rows:[]};throw new Error('Unexpected metadata query');
+ },run:async(_connection,statement)=>{data.runs.push(statement.sql);if(data.fail){data.status='unknown';throw new Error('ER_ACCESS_DENIED_ERROR: sentinel-secret');}data.status='idle';if(statement.command==='GRANT')data.grants.push(statement.sql.split(' ON ')[0].slice(6));else data.grants=[];}};
+ const get=async(target=object)=>{const result=await service.get(client,target);assert.equal(result.success,true,result.error);return result.detail;};
+ const prepare=async(options={})=>{const target=options.target||object;const detail=await get(target);return service.review(client,{target,grantee:account,privilege:target.type==='TABLE'?'SELECT':'EXECUTE',action:'grant',expected:detail.fingerprint,...options});};
+ const execute=(r,options={})=>service.execute(client,{token:r.token,confirm:account.user+'@'+account.host,acknowledged:true,...options});
+ return {data,client,service,get,prepare,execute};
+}
+test('MySQL object reviews quote identifiers and accounts, preserve pending work and require a one-use explicit execute',async()=>{
+ const f=fixture(),r=await f.prepare();assert.equal(r.success,true,r.error);assert.match(r.review.sql,/`demo`\.`t``x`/);assert.ok(r.review.sql.endsWith("TO 'a\\'lice'@'localhost'"));assert.equal(f.data.runs.length,0);assert.equal(f.data.status,'active');r.review.request.privilege='DROP';const applied=await f.execute(r.review);assert.equal(applied.success,true);assert.equal(applied.detail.grants[0].privilege,'SELECT');assert.equal(applied.transactionStatus,'idle');assert.equal((await f.execute(r.review)).success,false);assert.equal(f.data.runs.length,1);
+});
+test('MySQL object privilege guards reject stale, expired, reused, wrong-confirmation and reconnected reviews',async()=>{
+ for(const condition of ['stale','expired','confirm','connection','readonly','unknown']){const f=fixture(),r=await f.prepare();if(condition==='stale')f.data.version++;if(condition==='connection')f.client.main.threadId++;if(condition==='readonly')f.client.readonly=true;if(condition==='unknown')f.data.status='unknown';const original=Date.now;if(condition==='expired')Date.now=()=>original()+360000;try{const result=await f.execute(r.review,condition==='confirm'?{confirm:'other'}:{});assert.equal(result.success,false,condition);assert.equal(f.data.runs.length,0,condition);}finally{Date.now=original;}}
+});
+test('MySQL object matrix does not flatten column grants, GRANT OPTION, protected principals or partial catalogs',async()=>{
+ for(const mode of ['columns','option','limited','self','invalid','system']){const f=fixture();if(mode==='columns')f.data.columns=['Select'];if(mode==='option')f.data.grants=['Select,Grant'];if(mode==='limited')f.data.full=false;const extra=mode==='self'?{grantee:{user:'root',host:'localhost'}}:mode==='invalid'?{privilege:'SELECT; DROP USER root'}:mode==='system'?{target:{...object,schema:'mysql'}}:{};assert.equal((await f.prepare(extra).catch(()=>({success:false}))).success,false,mode);assert.equal(f.data.runs.length,0);}
+});
+test('MySQL routines distinguish FUNCTION from PROCEDURE and never return their source in privilege metadata',async()=>{
+ for(const type of ['PROCEDURE','FUNCTION']){const f=fixture(),target={...object,type},d=await f.get(target);assert.equal(d.complete,true);assert.ok(!JSON.stringify(d).includes('CREATE definition'));const r=await f.prepare({target});assert.equal(r.success,true,r.error);assert.ok(r.review.sql.includes('ON '+type+' '));assert.equal((await f.execute(r.review)).success,true);f.data.full=false;const limited=await f.get(target);assert.equal(limited.complete,false);assert.equal(limited.mutable,false);}
+});
+test('MySQL object privilege failures distinguish unknown application and applied-but-unconfirmed without replay or secret leaks',async()=>{
+ for(const mode of ['fail','refreshFail']){const f=fixture(),r=await f.prepare();f.data[mode]=true;const result=await f.execute(r.review);assert.ok(!JSON.stringify(result).includes('sentinel-secret'));assert.equal(result.success,mode==='refreshFail');assert.equal(result.outcome,mode==='fail'?'unknown':'applied');if(mode==='refreshFail')assert.equal(result.refreshError,'mysql_obj_applied_unconfirmed');await f.execute(r.review);assert.equal(f.data.runs.length,1);}
+});
+function hookFixture(){const h=createHookHarness(),calls=[],changes=[],props={active:true,busy:false,readonly:false,setBusy(){},onState:s=>changes.push(s)},detail={target:object,principals:[{...account,protected:false}],mutable:true,readonly:false,privileges:['SELECT'],grants:[],columnGrants:[],fingerprint:'f',scope:'all',complete:true};let state;
+ const hook=loadTypeScript('src/features/mysql/dba/useObjectPrivilegeTab.ts',{react:h.react,'@/shared/api/desktop':{ipcRenderer:{invoke:async(channel,input)=>{calls.push([channel,input]);if(channel==='get-mysql-object-privileges')return {success:true,detail};if(channel==='review-mysql-object-privileges')return {success:true,review:{token:'one',request:input,sql:'GRANT SELECT'}};if(channel==='execute-mysql-object-privileges')return {success:false,error:'mysql_obj_failed',transactionStatus:'idle'};throw new Error('Unexpected IPC');}}}},{Error});
+ const render=()=>state=h.render(()=>hook.useObjectPrivilegeTab(props));const flush=async()=>{for(let i=0;i<6;i++){render();h.commit();await h.settle();}render();};return {get state(){return state;},props,detail,calls,changes,flush,unmount:h.unmount};}
+test('MySQL privilege UI previews without optimistic grants, requires exact confirmation and does not replay failures',async()=>{
+ const f=hookFixture();await f.flush();f.state.select(object);await f.flush();assert.equal(f.state.detail.grants.length,0);await f.state.change(account,'SELECT',true);await f.flush();assert.equal(f.state.detail.grants.length,0);assert.ok(f.state.review);assert.equal(f.state.canExecute,false);f.state.setConfirm(account.user+'@'+account.host);f.state.setAcknowledged(true);await f.flush();assert.equal(f.state.canExecute,true);await f.state.execute();await f.flush();await f.state.execute();assert.equal(f.calls.filter(c=>c[0]==='execute-mysql-object-privileges').length,1);assert.equal(f.state.detail,undefined);assert.equal(f.changes[0].transactionStatus,'idle');f.unmount();
+});
+test('MySQL privilege UI hides reviews when inactive and blocks read-only and column-grant changes',async()=>{
+ const f=hookFixture();await f.flush();f.state.select(object);await f.flush();f.props.readonly=true;await f.flush();assert.equal(f.state.editable(account,'SELECT'),false);f.props.readonly=false;f.detail.columnGrants.push({account,privilege:'SELECT',column:'id'});await f.flush();assert.equal(f.state.editable(account,'SELECT'),false);f.detail.columnGrants=[];await f.state.change(account,'SELECT',true);await f.flush();assert.ok(f.state.review);f.props.active=false;await f.flush();assert.equal(f.state.review,undefined);assert.equal(f.state.detail,undefined);f.unmount();
+});
+test('MySQL object privilege panel opens the common four-category picker and disables refresh until a target is selected',()=>{
+ const f=componentHarness('src/features/mysql/dba/ObjectPrivilegeTab.tsx',{active:true,busy:false,readonly:false,database:'demo',setBusy(){},onState(){}},{dependencies:{'@/features/objects/ObjectPickerDialog':'Picker','@/features/data-grid/GridViewport':{GridViewport:'Viewport'},'@mui/x-data-grid':{DataGrid:'Grid',enUS:require('@mui/x-data-grid').enUS,jaJP:require('@mui/x-data-grid').jaJP},'./useObjectPrivilegeTab':{useObjectPrivilegeTab:()=>({detail:undefined,loading:false,error:'',applied:false,editable:()=>false})}}});f.render();assert.equal(f.node('Picker').props.categories.join(','),'TABLE,VIEW,PROCEDURE,FUNCTION');assert.equal(f.button('refresh').props.disabled,true);assert.equal(f.button('target_object_2').props.disabled,false);f.unmount();
+});

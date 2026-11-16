@@ -73,6 +73,7 @@ export const useDataGenerator = (
   }, []);
 
   const [inputDateFormat, setInputDateFormat] = useState(DEFAULT_DATETIME_FORMAT);
+  const [outputDateFormat, setOutputDateFormat] = useState(DEFAULT_DATETIME_FORMAT);
 
   const reportLoadError = useEventCallback((error: unknown) => {
     alert(t("failed_to_retrieve_information_2") + getErrorMessage(error));
@@ -91,6 +92,9 @@ export const useDataGenerator = (
             )
           ]);
 
+        if (settingsResult.status === 'fulfilled' && settingsResult.value?.outputDateFormat) {
+          setOutputDateFormat(settingsResult.value.outputDateFormat);
+        }
         // Use the default date format if settings cannot be loaded.
         if (settingsResult.status === 'fulfilled' &&
             settingsResult.value?.inputDateFormat) {
@@ -679,6 +683,7 @@ export const useDataGenerator = (
     onStart: () => { settingsRevisionRef.current++; }, generateRow: generateDataRow });
 
   return {
+    inputDateFormat, outputDateFormat,
     isLoading,
     ...workflow,
     schemas,

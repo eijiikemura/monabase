@@ -184,7 +184,7 @@ export default function DataGeneratorTabPostgresql({
   const [tablePickerOpen, setTablePickerOpen] = useState(false);
   
   const {
-    isLoading,
+    isLoading, inputDateFormat, outputDateFormat,
     schemas,
     selectedSchema,
     setSelectedSchema,
@@ -275,7 +275,7 @@ export default function DataGeneratorTabPostgresql({
       </Paper>
 
       <GenerationStatus progress={progress} result={result} onStop={handleStop} />
-      <GenerationPreviewDialog open={previewOpen} rows={previewRows} columns={previewColumns}
+      <GenerationPreviewDialog rules={columnRules} inputDateFormat={inputDateFormat} outputDateFormat={outputDateFormat} open={previewOpen} rows={previewRows} columns={previewColumns}
         disabled={isLoading || issues.invalid} onClose={() => setPreviewOpen(false)} onRefresh={handlePreview} onExecute={handleGenerate} />
       <Paper sx={{ flexGrow: 1, overflowY: 'auto', p: 2, bgcolor: 'background.paper' }}>
         <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2 }}>{t("column_data_gen_rules")}</Typography>

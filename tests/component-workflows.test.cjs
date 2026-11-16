@@ -61,10 +61,14 @@ for (const database of ['oracle', 'postgresql']) {
       if (String(sql).includes('ALL_TAB_COLUMNS') || channel === 'execute-sql-bg') return { success: true, rows: ['REGION', 'CURRENCY', 'AMOUNT'].map(name => ({ COLUMN_NAME: name, DATA_TYPE: 'VARCHAR2' })) };
       return phase === 'failure' ? { success: false, error: 'Aggregation rejected' } : { success: true, rows: [{ ROW_VALUE: 'North', USD: '1234' }] };
     } } };
-    const f = render(`src/features/${database}/windows/bi/CrossTabWindow.tsx`, { isActive: true, initialSchema: 'test', schemas: ['test'], inputDateFormat: 'YYYY-MM-DD' }, {
+    let useController;
+    const props = { isActive: true, initialSchema: 'test', schemas: ['test'], inputDateFormat: 'YYYY-MM-DD' };
+    if (database === 'oracle') Object.defineProperty(props, 'controller', { get: () => (logic = useController(props)) });
+    const f = render(database === 'oracle' ? 'src/features/cross-tab/CrossTabPanel.tsx' : `src/features/${database}/windows/bi/CrossTabWindow.tsx`, props, {
       globals, dependencies: (React, deps) => {
         const hook = loadTypeScript(`src/features/${database}/windows/bi/useCrossTabWindow.ts`, { ...deps, react: React, '../common/schemaStorage': { getPgSelectSchema: () => '', savePgSelectSchema() {} }, '@/shared/api/desktop': desktop, 'html-to-image': { toPng() { throw new Error('No chart export expected'); } } }, globals);
-        return { './useCrossTabWindow': { ...hook, useCrossTabWindow: props => (logic = hook.useCrossTabWindow(props)) }, '@mui/x-data-grid': grid,
+        useController = hook.useCrossTabWindow;
+        return { './crossTabTypes': loadTypeScript('src/features/cross-tab/crossTabTypes.ts'), './useCrossTabWindow': { ...hook, useCrossTabWindow: props => (logic = hook.useCrossTabWindow(props)) }, '@mui/x-data-grid': grid,
           '@/features/data-grid/StableGridFooter': { GridFooterContent: { Provider: 'Provider' }, StableGridFooter: 'Footer' },
           '@/components/data/ExportDialog': 'Export', '@/components/data/ConditionPanel': 'Conditions', recharts: new Proxy({}, { get: (_, key) => key }) };
       }

@@ -4,7 +4,7 @@
 
 # MonaBase
 
-An **AI-native desktop database IDE** for **Oracle Database 12+** and **PostgreSQL**, built with Electron, React, and TypeScript.
+An **AI-native desktop database IDE** for **Oracle Database 12+**, **PostgreSQL**, and **MySQL 8.4**, built with Electron, React, and TypeScript.
 
 Bring AI into stored-program coding, trace-based debugging, SQL creation, SQL tuning and test-data generation. Keep **stored source and custom ER diagrams in Git**, review changes before applying them, and control pending database changes with **Commit/Rollback in the main window** and an optional **read-only connection mode**.
 
@@ -25,7 +25,7 @@ AI is integrated into the work you are doing, rather than limited to a generic c
 
 | Assistant | How it helps |
 | --- | --- |
-| Stored-program and trigger coding | Create or revise procedures, functions, package bodies and triggers using selected object definitions; review the proposed source diff. |
+| Stored-program and trigger coding | Create or revise procedures, functions, views and triggers (plus Oracle package bodies) using selected object definitions; review the proposed source diff. |
 | Trace-based debugging | Follow recorded execution order, lines, branches and variable values; investigate where actual behavior diverged from expectations. |
 | SQL creation | Describe the query you need in the SQL window or query builder, with the relevant tables and views as context. |
 | SQL tuning | Review SQL with execution-plan information and related definitions; test proposed improvements against actual plans and results. |
@@ -53,7 +53,21 @@ From an object's Git tab, **Schema changes** compares DB definitions with record
 
 Use **read-only connection mode** for inspection: MonaBase checks permitted SQL, uses database read-only transactions, and blocks updates, stored execution and trace execution in this mode. On a writable main connection, DML performed in supported SQL and data-editing windows can remain uncommitted until you explicitly choose **Commit** or **Rollback** in the main window. These controls apply to the relevant connection and transaction context, not arbitrary independent database sessions. Connection colors and reviews help you confirm the target and change before execution. See the [transaction control guide](https://eijiikemura.github.io/monabase/guides/transaction-control/).
 
-These protections complement a least-privilege database account and your production change process. Oracle and PostgreSQL differ in supported operations; DDL can implicitly commit earlier work under MonaBase's transaction policy, so Rollback is not a universal undo operation.
+These protections complement a least-privilege database account and your production change process. Oracle, PostgreSQL and MySQL differ in supported operations; DDL can implicitly commit earlier work under MonaBase's transaction policy, so Rollback is not a universal undo operation.
+
+## MySQL 8.4 support
+
+MySQL includes SQL and table editing, test-data generation, query building, cross-tabs, ER diagrams, stored-program/trigger development and tracing, Git/AI assistance and DBA screens. MariaDB is outside this support scope.
+
+| Feature | MySQL behavior and differences |
+| --- | --- |
+| Connections / transactions | Direct/SSH, verified TLS and read-only connections. Editing/generation target InnoDB; Commit/Rollback controls main-session DML. DDL can implicitly commit preceding edits even when a DDL attempt fails. |
+| SQL / tuning | Typed binds, history, formatting, date display, estimated JSON plans and AI tuning or external request files. The connection database is the default; qualify objects in other databases. |
+| Development / Git | Version native table/view/procedure/function/trigger definitions and custom ER diagrams. AI adoption creates drafts; DB changes need explicit review. Routine replacement uses DROP + CREATE with explicit recovery after failure. Reviewed DELIMITER definition-file import is available. |
+| Trace / AI debugging | Record procedures/functions/triggers on isolated copies populated only with explicit test rows. Original rows, peer triggers and FKs are excluded. Cursors, nested blocks and handlers are supported; joins, subqueries, other routine calls, dynamic SQL, COMMIT and SELECT result sets are outside the trace grammar. |
+| Generation / administration | AUTO_INCREMENT/generated columns remain DB-managed. Manage users, privileges, sessions, locks and database creation/defaults; storage information is read-only. Independent sequences, packages, materialized views and other engine-specific objects are not emulated. |
+
+See the [online manual](https://eijiikemura.github.io/monabase/guides/getting-started/) and [detailed MySQL scope](docs/MYSQL.md). Older download artifacts may predate MySQL support; check the selected release notes.
 
 ## Screenshots
 
@@ -91,16 +105,16 @@ The Astro + Starlight project in [`website/`](website/README.md) provides a bili
 
 The desktop app uses Electron 44. From v1.0.1, prebuilt releases support Windows x64 and macOS 13+ on Apple Silicon (arm64). Intel Macs and Linux distributions are not supported; Linux remains a test platform.
 
-Use Node.js 22.12 or later, npm, and access to an Oracle or PostgreSQL database for interactive database operations.
+Use Node.js 22.12 or later, npm, and access to an Oracle, PostgreSQL or MySQL database for interactive database operations.
 
 ```sh
 npm ci
 npm run dev
 ```
 
-The development command starts Vite and Electron together. Prepare an Oracle or PostgreSQL database and configure its connection on the login screen. Oracle OS authentication requires a 64-bit Oracle Client; select its folder in Settings. SSH tunnel connections ask you to verify the server's fingerprint on first use; a changed saved key blocks the connection. AI support is optional and requires a compatible endpoint and model configured in the AI settings screen.
+The development command starts Vite and Electron together. Prepare an Oracle, PostgreSQL or MySQL database and configure its connection on the login screen. Oracle OS authentication requires a 64-bit Oracle Client; select its folder in Settings. SSH tunnel connections ask you to verify the server's fingerprint on first use; a changed saved key blocks the connection. AI support is optional and requires a compatible endpoint and model configured in the AI settings screen.
 
-SSH private-key files are limited to 1 MiB, and custom PostgreSQL CA certificate bundles to 4 MiB. Selected links to regular files are supported; the application reads these files without changing their contents or permissions.
+SSH private-key files are limited to 1 MiB, and custom PostgreSQL CA certificate bundles to 4 MiB (MySQL CA PEM files: 1 MiB). Selected links to regular files are supported; the application reads these files without changing their contents or permissions.
 
 ## Validation
 
@@ -116,7 +130,7 @@ npm run build
 npm run build:win
 ```
 
-These commands create desktop artifacts in `release/`. CI runs common tests on Linux and builds and verifies unpacked applications on Windows and macOS. A separate workflow tests disposable PostgreSQL and Oracle databases and Electron sidebar operations; see [the testing guide](docs/TESTING.md). Installer creation, signing, and additional database/version checks follow [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
+These commands create desktop artifacts in `release/`. CI runs common tests on Linux and builds and verifies unpacked applications on Windows and macOS. A separate workflow tests disposable PostgreSQL, Oracle and MySQL databases and Electron sidebar operations; see [the testing guide](docs/TESTING.md). Installer creation, signing, and additional database/version checks follow [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
 
 Windows builds produce separate installer and portable EXEs. From v1.0.1, macOS Apple Silicon DMGs are Developer ID-signed, Apple-notarized and stapled. Open the DMG, drag MonaBase to Applications, eject the DMG and launch from Applications. See [macOS distribution](docs/MACOS_DISTRIBUTION.md) for the separate local signing/notarization workflow; its verified DMG and `SHA256SUMS-mac-arm64` are attached manually. Linux distributions are not provided. The manual **Prepare release** workflow builds Windows x64, generates GitHub Artifact Attestations and checksums, and attaches the files to a **draft** GitHub Release. Ordinary pushes do not publish releases. See the [release instructions](docs/RELEASE_CHECKLIST.md#prepare-a-github-release) for version tags, publication and download verification. The Windows artifacts are unsigned; their attestations do not replace OS code signing. The manually built Mac DMG has Apple notarization but no GitHub Artifact Attestation. Windows SmartScreen may warn about an unrecognized or unsigned app. **Verify the source and release files before proceeding**; do not disable SmartScreen globally. See the [installation guide](https://eijiikemura.github.io/monabase/guides/getting-started/) for more information. A Microsoft Store listing should be treated as available only after it is published.
 

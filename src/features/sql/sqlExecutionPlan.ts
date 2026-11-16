@@ -6,7 +6,7 @@ import { finiteNumericSqlLiteral } from '@/shared/utils/numberValues';
 import { canonicalTemporalInput, temporalParts } from '@/shared/utils/temporalValues';
 
 // Only placeholders and type conversions enter SQL; user values travel as separate binds.
-export function prepareSqlStatement(sql: string, dialect: SqlDialect, values: Record<string, string>, types: Record<string, string>, dateFormat: string, ignore = false) {
+export function prepareSqlStatement(sql: string, dialect: Exclude<SqlDialect, 'mysql'>, values: Record<string, string>, types: Record<string, string>, dateFormat: string, ignore = false) {
   if (ignore) return { sql, binds: {} };
   const binds: Record<string, string | null> = {}, replacements: Record<string, string> = {};
   findSqlBindNames(sql, dialect).forEach((name, index) => {
@@ -37,7 +37,7 @@ export function prepareSqlStatement(sql: string, dialect: SqlDialect, values: Re
   return { sql: replaceSqlBinds(sql, replacements, dialect), binds };
 }
 
-export function parseDdlAction(source: string, dialect: SqlDialect): { schema?: string; objType: string } | null {
+export function parseDdlAction(source: string, dialect: Exclude<SqlDialect, 'mysql'>): { schema?: string; objType: string } | null {
   const tokens = tokenizeSql(source, dialect);
   let index = 0;
   const word = () => tokens[index]?.kind === 'word' ? tokens[index].text.toUpperCase() : '';

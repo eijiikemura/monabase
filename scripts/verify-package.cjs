@@ -34,7 +34,7 @@ function verifyMacSignature(appPath, { platform = process.platform, run = spawnS
 
 async function verify(archive) {
   const files = asar.listPackage(archive).map(file => file.replaceAll('\\', '/').replace(/^\//, ''));
-  for (const required of ['package.json', 'node_modules/ssh2/lib/client.js', 'node_modules/pg/lib/index.js', 'node_modules/oracledb/lib/oracledb.js', 'node_modules/simple-git/package.json', 'LICENSE', 'dist/index.html', 'electron/main.js', 'electron/preload.js',
+  for (const required of ['package.json', 'node_modules/ssh2/lib/client.js', 'node_modules/pg/lib/index.js', 'node_modules/mysql2/index.js', 'node_modules/mysql2/package.json', 'electron/mysql/mysqlClient.js', 'electron/mysql/sqlText.js', 'electron/mysql/transactionState.js', 'node_modules/oracledb/lib/oracledb.js', 'node_modules/simple-git/package.json', 'LICENSE', 'dist/index.html', 'electron/main.js', 'electron/preload.js',
     'electron/services/dataSafety.js', 'electron/services/jsonFiles.js', 'electron/services/sshHostKeys.js',
     'electron/services/credentialFiles.js', 'electron/services/sqlPrivacy.js', 'electron/services/aiErrors.js', 'electron/services/boundedFiles.js', 'electron/ai/requestLimits.js', 'electron/services/filePermissions.js', 'electron/services/networkPolicy.js', 'electron/services/gitSecurity.js', 'electron/services/gitClient.js', 'electron/postgres/tlsOptions.js',
     'electron/services/traceStore.js', 'electron/postgres/sqlText.js',

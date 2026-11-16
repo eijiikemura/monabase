@@ -39,7 +39,7 @@ function registerFileHandlers({ getValidatedSettings = getCurrentSettings, ipcMa
 
   const visibleHistory = history => history.filter(entry => !inspectSqlPrivacy(entry.sql).sensitive);
   ipcMain.handle('inspect-sql-privacy', (_event, statements, dialect) => {
-    if (!Array.isArray(statements) || !['oracle', 'postgresql'].includes(dialect)) throw new Error('Invalid SQL privacy request.');
+    if (!Array.isArray(statements) || !['oracle', 'postgresql', 'mysql'].includes(dialect)) throw new Error('Invalid SQL privacy request.');
     return statements.map(sql => inspectSqlPrivacy(sql, dialect));
   });
   ipcMain.handle('get-sql-history', () => visibleHistory(readHistory()));

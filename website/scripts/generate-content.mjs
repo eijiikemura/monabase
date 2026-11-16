@@ -52,8 +52,11 @@ for (const locale of ['en', 'ja']) {
       page.steps.map((step, index) => `${index + 1}. ${step}`).join('\n'),
       ...(page.code ? ['```sql\n' + page.code + '\n```'] : []),
     ];
-    const databaseNotes = (page.oracle || page.postgresql)
-      ? [`## ${ui.db_notes}`, ...(page.oracle ? ['### Oracle', page.oracle] : []), ...(page.postgresql ? ['### PostgreSQL', page.postgresql] : [])]
+    const databaseNotes = (page.oracle || page.postgresql || page.mysql)
+      ? [`## ${ui.db_notes}`,
+         ...(page.oracle ? ['### Oracle', page.oracle] : []),
+         ...(page.postgresql ? ['### PostgreSQL', page.postgresql] : []),
+         ...(page.mysql ? [`### ${ui.mysql_title}`, page.mysql.intro] : [])]
       : [];
     const tableContent = (page.tables ?? []).flatMap(table => [`## ${table.title}`, table.description, tableMarkdown(table)]);
     const traceSections = page.sections ?? [];

@@ -4,9 +4,10 @@
 import type { DbType as AiDbType, DatabaseObject as AiDatabaseObject, ObjectReference as AiObjectReference } from './objectTypes';
 
 export interface AiDatabaseContext {
-  dbType: 'oracle' | 'postgresql'; session: 'main'; readOnlyMode: boolean;
+  dbType: 'oracle' | 'postgresql' | 'mysql'; session: 'main'; readOnlyMode: boolean;
   version?: string; schema?: string; timezone?: string; dateFormat?: string;
   timestampFormat?: string; numericCharacters?: string; searchPath?: string;
+  sqlMode?: string; characterSet?: string; collation?: string; lowerCaseTableNames?: string;
   dateStyle?: string; standardConformingStrings?: string;
 }
 
@@ -20,7 +21,7 @@ export interface AiSourceIdentity {
   signature?: string;
   tableName?: string;
   historyScope?: 'debug';
-  dbType: 'oracle' | 'postgresql';
+  dbType: 'oracle' | 'postgresql' | 'mysql';
   category: 'TRIGGER' | 'PROCEDURE' | 'FUNCTION' | 'PACKAGE' | 'PACKAGE BODY';
   schema: string;
   objectName: string;

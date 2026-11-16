@@ -18,6 +18,7 @@ import { DEFAULT_DATETIME_FORMAT, DEFAULT_DATE_FORMAT } from "./shared/utils/dat
 import { monaTheme, simpleTheme, darkTheme } from "./app/themes";
 import { ipcRenderer } from './shared/api/desktop';
 
+const AppMysql = lazy(() => import('./features/mysql/AppMysql'));
 const AppOracle = lazy(() => import('./features/oracle/AppOracle'));
 const AppPostgresql = lazy(() => import('./features/postgresql/AppPostgresql'));
 
@@ -225,6 +226,7 @@ export default function App() {
                 <Typography>{t('loading')}</Typography>
               </Box>
             }>
+              {config.dbType === 'mysql' && <AppMysql config={config} dbInfo={dbInfo} schemas={schemas} settings={settings} onDisconnect={handleDisconnect} onOpenSettings={handleOpenSettings} />}
               {config.dbType === 'oracle' && (
                 <AppOracle
                   config={config}

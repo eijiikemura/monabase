@@ -259,7 +259,10 @@ test('Workspace widths restore after quick unmount, separate DB/panel preference
   assert.equal(otherDb.render()[0], 300); assert.equal(otherPanel.render()[0], 270);
   otherPanel.render()[1](9999); assert.equal(otherPanel.render()[0], 600); otherPanel.unmount();
   otherDb.render()[1](10); assert.equal(otherDb.render()[0], 300); otherDb.unmount();
-  assert.ok(writes.every(row => /^monabase\.panel-width\.(oracle|postgresql)\.(ai|sidebar)$/.test(row.key)));
+  const mysql = mount('mysql', 'sidebar', 280);
+  assert.equal(mysql.render()[0], 280); mysql.render()[1](320); mysql.render(); mysql.unmount();
+  assert.equal(storage.get('monabase.panel-width.mysql.sidebar'), '320');
+  assert.ok(writes.every(row => /^monabase\.panel-width\.(oracle|postgresql|mysql)\.(ai|sidebar)$/.test(row.key)));
 });
 
 test('Invalid or unavailable panel storage falls back safely and never blocks resizing', () => {

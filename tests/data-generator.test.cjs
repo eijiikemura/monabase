@@ -700,3 +700,14 @@ for (const db of ['oracle', 'postgresql']) {
     } finally { h.unmount(); }
   });
 }
+
+test('Oracle and PostgreSQL generator controllers expose input and output date settings independently', async () => {
+  const { createGeneratorHarness } = require('./helpers/dataGenerator.cjs');
+  for (const database of ['oracle', 'postgresql']) {
+    const f = await createGeneratorHarness(database, async channel => channel === 'load-settings'
+      ? { inputDateFormat: 'DD/MM/YYYY', outputDateFormat: 'YYYY-MM-DD HH:mm:ss' }
+      : { success: true, rows: [{ USERNAME: 'test' }] });
+    try { assert.equal(f.state.inputDateFormat, 'DD/MM/YYYY'); assert.equal(f.state.outputDateFormat, 'YYYY-MM-DD HH:mm:ss'); }
+    finally { f.unmount(); }
+  }
+});

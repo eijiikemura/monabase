@@ -1,6 +1,12 @@
 // Copyright 2026 eiji ikemura
 // SPDX-License-Identifier: Apache-2.0
+import type {MysqlDatabaseSnapshot,MysqlDatabaseDetail} from '@/shared/types/mysqlDatabaseTypes';
+import type { MysqlTablespaceSnapshot, MysqlTablespaceTarget, MysqlTablespaceDetail } from '@/shared/types/mysqlTablespaceTypes';
 
+import type {MysqlLockSnapshot,MysqlLockTarget,MysqlLockDetail,MysqlLockRequest,MysqlLockReview,MysqlLockOutcome} from '@/shared/types/mysqlLockTypes';
+import type {MysqlSessionSnapshot,MysqlSessionTarget,MysqlSessionDetail,MysqlSessionRequest,MysqlSessionReview,MysqlSessionExecution,MysqlSessionOutcome} from '@/shared/types/mysqlSessionTypes';
+import type {MysqlPrivilegeTarget,MysqlObjectPrivilegeDetail,MysqlObjectPrivilegeRequest,MysqlObjectPrivilegeReview,MysqlObjectPrivilegeExecution,MysqlObjectPrivilegeOutcome} from '@/shared/types/mysqlObjectPrivilegeTypes';
+import type {MysqlAccount,MysqlAccountSnapshot,MysqlAccountDetail,MysqlAccountRequest,MysqlAccountReview,MysqlAccountExecution,MysqlAccountOutcome} from '@/shared/types/mysqlUserRoleTypes';
 import type { OraclePrincipalSnapshot, OraclePrincipalTarget, OraclePrincipalDetail, OraclePrincipalRequest, OraclePrincipalReview, OraclePrincipalExecution, OraclePrincipalResult, OraclePrincipalFailure } from '@/shared/types/oracleUserRoleTypes';
 import type { PgRoleSnapshot, PgRoleTarget, PgRoleDetail, PgRoleRequest, PgRoleReview, PgRoleExecution, PgRoleResult } from '@/shared/types/postgresRoleTypes';
 import type { PgTablespaceSnapshot, PgTablespaceTarget, PgTablespaceDetail, PgTablespaceRequest, PgTablespaceReview, PgTablespaceExecution, PgTablespaceResult, PgTablespaceFailure } from '@/shared/types/postgresTablespaceTypes';
@@ -26,7 +32,7 @@ import type { TraceStep, TraceTarget } from '@/shared/types/traceTypes';
 export type Response<T = object> =
   | ({ success: true; error?: never } & T)
   | ({ success: false; error: string } & Partial<T>);
-export interface TransactionState { hasUncommittedTx?: boolean; }
+export interface TransactionState { hasUncommittedTx?: boolean; transactionStatus?: 'idle' | 'active' | 'unknown'; autocommit?: boolean; }
 export type SqlArguments = [sql: string, binds?: Record<string, unknown>, schema?: string | null, batchId?: string | null];
 export interface SqlData<Row = DatabaseRow> extends TransactionState {
   rows: Row[];
@@ -37,6 +43,7 @@ export interface SqlData<Row = DatabaseRow> extends TransactionState {
   executionSchema?: string;
   cancelled?: boolean;
   errorPosition?: number;
+  mysqlErrorLine?: number;
   errorContext?: string;
   notices?: string[];
 }
@@ -66,6 +73,7 @@ export interface OracleTriggerSave extends Omit<PostgresTriggerSave, 'expected'>
 }
 export interface LoadingOptions { skipGlobalLoader?: boolean; }
 export interface StoredRequest {
+  mysqlFingerprint?: string;
   subProgram?: string;
   subProgramId?: number;
   argumentModes?: Record<string, 'value' | 'null' | 'default'>;
@@ -80,12 +88,22 @@ export interface StoredRequest {
   isSubProgramFunction?: boolean;
 }
 export interface TraceRequest extends StoredRequest {
+  mysqlTableFingerprint?: string;
+  mysqlTraceFixtures?: Record<string,Record<string,string|number|boolean|null>[]>;
+  mysqlTraceTableFingerprints?: Record<string,string>;
+  triggerInput?: {oldRow:Record<string,string|number|boolean|null>;newRow:Record<string,string|number|boolean|null>};
+  mysqlFingerprint?: string;
   sourceText: string;
   originalSourceText?: string;
   traceTarget?: TraceTarget;
   skipParse?: boolean;
 }
 export interface TraceInfo {
+  trigger_outcome?: Record<string,string|null>[];
+  table_fixtures?: Record<string,Record<string,string|number|boolean|null>[]>;
+  execution_status?: 'complete' | 'incomplete';
+  execution_error?: string | null;
+  return_values?: {name:string;value:unknown}[];
   compile_date: string;
   arguments: string;
   target_compile_date?: string | null;
@@ -97,6 +115,7 @@ export interface TraceInfo {
   procedure_to_source?: Record<string, number>;
 }
 export interface StoredData extends TransactionState {
+  resultSets?: {rows: Record<string, unknown>[]; metaData: {name:string;dbTypeName?:string}[]}[];
   returnValues?: { name: string; value: unknown }[];
   dbmsOutput?: string[];
 }
@@ -139,6 +158,22 @@ export interface GitObject { tableName?: string; signature?: string; dbType: str
 export interface ErObject { dbType: string; objectName: string; }
 export interface GitPullData { isConflict?: boolean; statusUnavailable?: boolean; }
 
+export interface MysqlProcedureDefinition { schema:string; name:string; source:string; }
+export interface MysqlProcedureInfo extends MysqlProcedureDefinition {
+  kind?:'PROCEDURE'|'FUNCTION';returnType?:string;
+  native:string; parameters:{name:string;direction:string;type:string;position:number}[];
+  mode:string;definer:string;security:string;dataAccess:string;deterministic:boolean;comment:string;
+  created:string|null;altered:string|null;charset:string;collation:string;fingerprint:string;
+}
+export interface MysqlProcedureMutation extends MysqlProcedureDefinition {operation:'create'|'replace'|'drop'|'restore';fingerprint?:string;recoveryToken?:string;}
+export interface MysqlProcedureMutationResult {applied:boolean;stage:string;procedure?:MysqlProcedureInfo;recovery?:{token:string;sql:string};}
+export interface MysqlFunctionInfo extends MysqlProcedureInfo {returnType:string;}
+export interface MysqlFunctionMutationResult extends Omit<MysqlProcedureMutationResult,'procedure'> {routine?:MysqlFunctionInfo;}
+export interface MysqlTriggerDefinition { schema: string; name: string; table: string; timing: 'BEFORE' | 'AFTER'; event: 'INSERT' | 'UPDATE' | 'DELETE'; body: string; }
+export interface MysqlTriggerInfo extends MysqlTriggerDefinition { native: string; mode: string; definer: string; charset: string; collation: string; databaseCollation: string; created: string | null; order: number; peers: string[]; fingerprint: string; }
+export type MysqlTriggerMutation = Partial<MysqlTriggerDefinition> & Pick<MysqlTriggerDefinition, 'schema' | 'name'> & { operation: 'create' | 'replace' | 'drop' | 'restore'; fingerprint?: string; recoveryToken?: string };
+export interface MysqlTriggerMutationResult { applied: boolean; stage: string; trigger?: MysqlTriggerInfo; recovery?: { token: string; sql: string }; }
+
 interface Request<Args extends unknown[], Result> { args: Args; result: Result; }
 export type FocusElementKind = 'input' | 'textarea' | 'contenteditable' | 'other' | 'none';
 export interface FocusStateReport {
@@ -179,7 +214,7 @@ export interface DesktopRequests {
   'save-settings': Request<[settings: AppSettings], Response>;
   'get-app-version': Request<[], string>;
   'open-external': Request<[url: string], void>;
-  'inspect-sql-privacy': Request<[statements: string[], dialect: 'oracle' | 'postgresql'], Array<{ sensitive: boolean; command: string }>>;
+  'inspect-sql-privacy': Request<[statements: string[], dialect: 'oracle' | 'postgresql' | 'mysql'], Array<{ sensitive: boolean; command: string }>>;
   'get-sql-history': Request<[], SqlHistoryEntry[]>;
   'add-sql-history': Request<[entry: Omit<SqlHistoryEntry, 'id'>], SqlHistoryEntry[]>;
   'clear-sql-history': Request<[], SqlHistoryEntry[]>;
@@ -188,8 +223,41 @@ export interface DesktopRequests {
   'show-open-dialog': Request<[options: OpenDialogOptions], OpenDialogReturnValue>;
   'show-open-folder-dialog': Request<[title?: string], OpenDialogReturnValue>;
   'save-file': Request<[path: string, data: string | ArrayBuffer | Uint8Array, encoding: string, writeToken?: string], Response>;
-  'connect-db': Request<[config: ConnectionConfig], Response<{ aiHistoryScope: string }>>;
+  'connect-db': Request<[config: ConnectionConfig], Response<{ aiHistoryScope?: string }>>;
   'disconnect-db': Request<[], boolean>;
+  'get-mysql-function': Request<[request:{schema:string;name:string}],Response<{routine:MysqlFunctionInfo}>>;
+  'mutate-mysql-function': Request<[request:MysqlProcedureMutation],Response<MysqlFunctionMutationResult & TransactionState>>;
+  'review-mysql-definition-import':Request<[request:{schema:string;source:string}],Response<{token:string;items:{schema:string;name:string;kind:'PROCEDURE'|'FUNCTION'|'TRIGGER';operation:'create'|'replace';sql:string}[]}>>;
+  'execute-mysql-definition-import':Request<[request:{token:string}],Response<TransactionState&{results:{schema:string;name:string;kind:'PROCEDURE'|'FUNCTION'|'TRIGGER';success:boolean;applied:boolean;stage:string;error?:string;recovery?:{token:string;sql:string};native?:string}[];total:number}>>;
+  'get-mysql-database-options':Request<[],Response<{options:import('@/shared/types/mysqlDatabaseTypes').MysqlDatabaseOption[]}>>;
+  'review-mysql-database':Request<[draft:import('@/shared/types/mysqlDatabaseTypes').MysqlDatabaseDraft],Response<{token:string;sql:string}>>;
+  'manage-mysql-database':Request<[request:{token:string}],Response<TransactionState&{applied:boolean;outcome:'applied'|'unchanged'|'unknown';database?:{name:string;charset:string;collation:string}}>>;
+  'list-mysql-databases':Request<[],Response<{snapshot:MysqlDatabaseSnapshot}>>;
+  'get-mysql-database-detail':Request<[target:{name:string}],Response<{detail:MysqlDatabaseDetail}>>;
+  'list-mysql-tablespaces': Request<[], Response<{snapshot:MysqlTablespaceSnapshot}>>;
+  'get-mysql-tablespace-detail': Request<[target:MysqlTablespaceTarget], Response<{detail:MysqlTablespaceDetail}>>;
+  'list-mysql-locks':Request<[],Response<{snapshot:MysqlLockSnapshot}>>;
+  'get-mysql-lock-detail':Request<[target:MysqlLockTarget],Response<{detail:MysqlLockDetail}>>;
+  'review-mysql-lock':Request<[request:MysqlLockRequest],Response<{review:MysqlLockReview}>>;
+  'manage-mysql-lock':Request<[request:MysqlSessionExecution],Response<MysqlLockOutcome>>;
+  'list-mysql-sessions':Request<[],Response<{snapshot:MysqlSessionSnapshot}>>;
+  'get-mysql-session-detail':Request<[target:MysqlSessionTarget],Response<{detail:MysqlSessionDetail}>>;
+  'review-mysql-session':Request<[request:MysqlSessionRequest],Response<{review:MysqlSessionReview}>>;
+  'manage-mysql-session':Request<[request:MysqlSessionExecution],Response<MysqlSessionOutcome>>;
+  'get-mysql-object-privileges':Request<[target:MysqlPrivilegeTarget],Response<{detail:MysqlObjectPrivilegeDetail}>>;
+  'review-mysql-object-privileges':Request<[request:MysqlObjectPrivilegeRequest],Response<{review:MysqlObjectPrivilegeReview}>>;
+  'execute-mysql-object-privileges':Request<[request:MysqlObjectPrivilegeExecution],Response<MysqlObjectPrivilegeOutcome & TransactionState>>;
+  'list-mysql-accounts':Request<[],Response<{snapshot:MysqlAccountSnapshot}>>;
+  'get-mysql-account':Request<[target:MysqlAccount],Response<{detail:MysqlAccountDetail}>>;
+  'review-mysql-account':Request<[request:MysqlAccountRequest],Response<{review:MysqlAccountReview}>>;
+  'execute-mysql-account':Request<[request:MysqlAccountExecution],Response<MysqlAccountOutcome & TransactionState>>;
+  'get-mysql-routine-dependencies':Request<[request:{schema:string;name:string;kind:'PROCEDURE'|'FUNCTION';fingerprint:string}],Response<{references:{schema:string;name:string;type:'TABLE'|'VIEW'|'FUNCTION'|'PROCEDURE'|'TRIGGER';evidence:'catalog'|'source'}[];dependents:{schema:string;name:string;type:'TABLE'|'VIEW'|'FUNCTION'|'PROCEDURE'|'TRIGGER';evidence:'catalog'|'source'}[];limited:boolean;unreadable:number;scope:string;fingerprint:string}>>;
+  'get-mysql-procedure': Request<[request:{schema:string;name:string}],Response<{procedure:MysqlProcedureInfo}>>;
+  'mutate-mysql-procedure': Request<[request:MysqlProcedureMutation],Response<MysqlProcedureMutationResult & TransactionState>>;
+  'get-mysql-trace-inputs':Request<[request:{schema:string;name:string;kind:'FUNCTION'|'PROCEDURE'|'TRIGGER';fingerprint:string}],Response<{fingerprint:string;tables:{name:string;fingerprint:string;columns:{name:string;type:string;nullable:boolean;required?:boolean;generated:boolean;supported:boolean}[]}[]}>>;
+  'get-mysql-trigger-trace-inputs': Request<[request:{schema:string;name:string}], Response<{trigger:MysqlTriggerInfo;tableFingerprint:string;columns:{name:string;type:string;nullable:boolean;defaultValue:unknown;extra:string;generated:boolean}[]}>>;
+  'get-mysql-trigger': Request<[request: { schema: string; name: string }], Response<{ trigger: MysqlTriggerInfo }>>;
+  'mutate-mysql-trigger': Request<[request: MysqlTriggerMutation], Response<MysqlTriggerMutationResult> & TransactionState>;
   'get-db-info': Request<[], Response<{ info: string }>>;
   'get-oracle-dblink': Request<[request: DbLinkIdentity], Response<DbLinkRead & { errorCode?: string }>>;
   'save-oracle-dblink': Request<[request: DbLinkSave], Response<DbLinkRead & TransactionState & { phase?: DbLinkPhase; errorCode?: string }>>;
@@ -273,7 +341,7 @@ export interface DesktopRequests {
   'execute-trace': Request<[params: TraceRequest], Response<TraceData>>;
   'delete-trace-db': Request<[target: TraceTarget], Response>;
   'get-trace-data': Request<[target: TraceTarget], Response<{ info: TraceInfo | null; steps: TraceStep[] }>>;
-  'get-trace-for-ai': Request<[params: TraceTarget & { dbType: 'oracle' | 'postgresql'; approvedBytes?: number }], { success: true; content: string } | { success: false; requiresConfirmation: true; sizeBytes: number } | { success: false; requiresConfirmation?: false; error: string }>;
+  'get-trace-for-ai': Request<[params: TraceTarget & { dbType: 'oracle' | 'postgresql' | 'mysql'; approvedBytes?: number }], { success: true; content: string } | { success: false; requiresConfirmation: true; sizeBytes: number } | { success: false; requiresConfirmation?: false; error: string }>;
   'get-ai-settings': Request<[], Response<AiSettings>>;
   'get-ai-database-context': Request<[], Response<{ environment: AiDatabaseContext }>>;
   'save-ai-settings': Request<[settings: AiSettings], Response<{ credentialsPersisted: boolean }>>;

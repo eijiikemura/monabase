@@ -17,8 +17,112 @@ const { executeTracePg } = require('../postgres/traceExecutorPg');
 const { TraceDatabase: PgTraceDatabase } = require('../postgres/traceDb');
 
 function registerDatabaseHandlers({ getValidatedSettings, ipcMain, state, t, createSshHostVerifier }) {
+  const basicMysqlChannels = new Set(['connect-db', 'disconnect-db', 'get-db-info', 'get-schemas',
+    'execute-trace', 'get-trace-data', 'get-trace-for-ai', 'delete-trace-db', 'review-mysql-definition-import', 'execute-mysql-definition-import', 'review-mysql-database', 'manage-mysql-database', 'get-mysql-database-options', 'list-mysql-databases', 'get-mysql-database-detail', 'list-mysql-tablespaces', 'get-mysql-tablespace-detail', 'list-mysql-locks', 'get-mysql-lock-detail', 'review-mysql-lock', 'manage-mysql-lock', 'list-mysql-sessions', 'get-mysql-session-detail', 'review-mysql-session', 'manage-mysql-session', 'get-mysql-object-privileges', 'review-mysql-object-privileges', 'execute-mysql-object-privileges', 'list-mysql-accounts', 'get-mysql-account', 'review-mysql-account', 'execute-mysql-account', 'execute-sql', 'execute-sql-bg', 'explain-sql', 'begin-sql-batch', 'end-sql-batch', 'commit-db', 'rollback-db', 'cancel-execution', 'get-ai-database-context', 'get-mysql-trace-inputs', 'get-mysql-trigger-trace-inputs', 'get-mysql-trigger', 'mutate-mysql-trigger', 'get-mysql-routine-dependencies', 'get-mysql-procedure', 'mutate-mysql-procedure', 'get-mysql-function', 'mutate-mysql-function', 'execute-stored']);
+  const originalIpc = ipcMain;
+  ipcMain = { handle(channel, handler) {
+    originalIpc.handle(channel, (...args) => {
+      if (state.type === 'mysql' && !basicMysqlChannels.has(channel)) return { success: false, error: 'This feature is not yet supported for MySQL.' };
+      return handler(...args);
+    });
+  } };
   state.aiHistoryScopes ??= new Map();
   const sqlBatches = createSqlBatches(() => state.client);
+  for(const [channel,method] of [['review-mysql-definition-import','review'],['execute-mysql-definition-import','execute']])ipcMain.handle(channel,async(event,input)=>{
+    const client=state.client;
+    try{if(state.type!=='mysql'||!client)throw new Error('A MySQL connection is required.');if(sqlBatches.isReserved())throw new Error('The SQL workspace is busy.');return {success:true,...await require('../mysql/definitionImportService')[method](client,input),...(method==='execute'?getMainTransactionStateResponse(client):{})};}
+    catch(error){return {success:false,error:error.message,...(method==='execute'?getMainTransactionStateResponse(client):{})};}
+  });
+  for(const [channel,method] of [['get-mysql-database-options','options'],['review-mysql-database','review'],['manage-mysql-database','execute']])ipcMain.handle(channel,async(event,input)=>{
+    const client=state.client;let batch;
+    try{if(state.type!=='mysql'||!client)throw new Error('A MySQL connection is required.');if(sqlBatches.isReserved())throw new Error('The SQL workspace is busy.');if(method==='execute')batch=sqlBatches.enter(event,null);return {success:true,...await require('../mysql/databaseManagement')[method](client,input),...(method==='execute'?getMainTransactionStateResponse(client):{})};}
+    catch(error){return {success:false,error:error.message,...(method==='execute'?getMainTransactionStateResponse(client):{})};}finally{if(batch)batch.active=false;}
+  });
+  for(const [channel,method] of [['list-mysql-databases','list'],['get-mysql-database-detail','get']])ipcMain.handle(channel,async(_event,input)=>{
+    if(state.type!=='mysql'||!state.client)return {success:false,error:'mysql_database_unavailable'};
+    try{return await require('../mysql/databaseService')[method](state.client,input);}catch{return {success:false,error:'mysql_database_read_failed'};}
+  });
+  for(const [channel,method] of [['list-mysql-tablespaces','list'],['get-mysql-tablespace-detail','get']])ipcMain.handle(channel,async(_event,input)=>{
+    if(state.type!=='mysql'||!state.client)return {success:false,error:'mysql_storage_unavailable'};
+    try{return await require('../mysql/tablespaceService')[method](state.client,input);}catch{return {success:false,error:'mysql_storage_read_failed'};}
+  });
+  const mysqlLocks=()=>require('../mysql/lockService');
+  for(const [channel,method] of [['list-mysql-locks','list'],['get-mysql-lock-detail','get'],['review-mysql-lock','review'],['manage-mysql-lock','execute']])ipcMain.handle(channel,async(_event,input)=>{
+    if(state.type!=='mysql'||!state.client)return {success:false,error:'mysql_lock_unavailable'};
+    try{return await mysqlLocks()[method](state.client,input);}catch{return {success:false,error:method==='execute'?'mysql_session_unknown':'mysql_lock_read_failed',...(method==='execute'?{submitted:true,status:'unknown'}:{})};}
+  });
+  const mysqlSessions=()=>require('../mysql/sessionService');
+  for(const [channel,method] of [['list-mysql-sessions','list'],['get-mysql-session-detail','get'],['review-mysql-session','review'],['manage-mysql-session','execute']])ipcMain.handle(channel,async(_event,input)=>{
+    if(state.type!=='mysql'||!state.client)return {success:false,error:'mysql_session_unavailable'};
+    try{return await mysqlSessions()[method](state.client,input);}catch{return {success:false,error:method==='execute'?'mysql_session_unknown':'mysql_session_read_failed',...(method==='execute'?{submitted:true,status:'unknown'}:{})};}
+  });
+  const mysqlObjectPrivileges=()=>require('../mysql/objectPrivileges');
+  for(const [channel,method] of [['get-mysql-object-privileges','get'],['review-mysql-object-privileges','review']])ipcMain.handle(channel,async(_event,input)=>{
+    if(state.type!=='mysql'||!state.client)return {success:false,error:'mysql_obj_unavailable'};
+    try{return await mysqlObjectPrivileges()[method](state.client,input);}catch{return {success:false,error:'mysql_obj_load_failed'};}
+  });
+  ipcMain.handle('execute-mysql-object-privileges',async(event,input)=>{
+    const client=state.client;let batch;
+    try{
+      if(state.type!=='mysql'||!client)return {success:false,error:'mysql_obj_unavailable',applied:false,outcome:'failed'};
+      if(sqlBatches.isReserved())return {success:false,error:'mysql_obj_busy',applied:false,outcome:'failed'};
+      batch=sqlBatches.enter(event,null);return await mysqlObjectPrivileges().execute(client,input);
+    }catch{return {success:false,error:'mysql_obj_failed',applied:false,outcome:'failed',...getMainTransactionStateResponse(client)};}
+    finally{if(batch)batch.active=false;}
+  });
+  const mysqlAccounts=()=>require('../mysql/userRoleService');
+  for(const [channel,method] of [['list-mysql-accounts','list'],['get-mysql-account','get'],['review-mysql-account','review']])ipcMain.handle(channel,async(_event,input)=>{
+    if(state.type!=='mysql'||!state.client)return {success:false,error:'mysql_user_unavailable'};
+    try{return await mysqlAccounts()[method](state.client,input);}catch{return {success:false,error:'mysql_user_load_failed'};}
+  });
+  ipcMain.handle('execute-mysql-account',async(event,input)=>{
+    const client=state.client;let batch;
+    try{
+      if(state.type!=='mysql'||!client)return {success:false,error:'mysql_user_unavailable',applied:false,outcome:'failed'};
+      if(sqlBatches.isReserved())return {success:false,error:'mysql_user_busy',applied:false,outcome:'failed'};
+      batch=sqlBatches.enter(event,null);
+      return await mysqlAccounts().execute(client,input);
+    }catch{return {success:false,error:'mysql_user_operation_failed',applied:false,outcome:'failed',...getMainTransactionStateResponse(client)};}
+    finally{if(batch)batch.active=false;}
+  });
+  ipcMain.handle('get-mysql-trace-inputs',async(_event,request)=>{try{if(state.type!=='mysql'||!state.client)throw new Error('A MySQL connection is required.');return {success:true,...await require('../mysql/traceInputs').getTraceInputs(state.client,request)};}catch(error){return {success:false,error:error.message};}});
+  ipcMain.handle('get-mysql-trigger-trace-inputs', async (_event, request) => {
+    try { if(state.type!=='mysql'||!state.client)throw new Error('A MySQL connection is required.');return {success:true,...await require('../mysql/triggerTraceService').getTriggerTraceInputs(state.client,request)}; }
+    catch(error){return {success:false,error:error.message};}
+  });
+  ipcMain.handle('get-mysql-trigger', async (_event, request) => {
+    try { if (state.type !== 'mysql' || !state.client) throw new Error('A MySQL connection is required.'); return { success: true, trigger: await state.client.getTrigger(request) }; }
+    catch (error) { return { success: false, error: error.message }; }
+  });
+  ipcMain.handle('mutate-mysql-trigger', async (event, request) => {
+    const client = state.client; let batch;
+    try {
+      if (state.type !== 'mysql' || !client) throw new Error('A MySQL connection is required.');
+      batch = sqlBatches.enter(event, null);
+      return { ...await client.mutateTrigger(request), ...getMainTransactionStateResponse(client) };
+    } catch (error) { return { success: false, error: error.message, ...getMainTransactionStateResponse(client) }; }
+    finally { if (batch) batch.active = false; }
+  });
+  ipcMain.handle('get-mysql-function', async (_event, request) => {
+    try{if(state.type!=='mysql'||!state.client)throw new Error('A MySQL connection is required.');return {success:true,routine:await state.client.getFunction(request)};}
+    catch(error){return {success:false,error:error.message};}
+  });
+  ipcMain.handle('mutate-mysql-function', async (_event, request) => {
+    const client=state.client;
+    try{if(state.type!=='mysql'||!client)throw new Error('A MySQL connection is required.');if(sqlBatches.isReserved())throw new Error('Function changes require an idle SQL workspace.');return {...await client.mutateFunction(request),...getMainTransactionStateResponse(client)};}
+    catch(error){return {success:false,error:error.message,...getMainTransactionStateResponse(client)};}
+  });
+  ipcMain.handle('get-mysql-routine-dependencies',async(_event,request)=>{try{if(state.type!=='mysql'||!state.client)throw new Error('A MySQL connection is required.');return {success:true,...await require('../mysql/routineDependencies').getRoutineDependencies(state.client,request)};}catch(error){return {success:false,error:error.message};}});
+  ipcMain.handle('get-mysql-procedure', async (_event, request) => {
+    try { if(state.type!=='mysql'||!state.client)throw new Error('A MySQL connection is required.');return {success:true,procedure:await state.client.getProcedure(request)}; }
+    catch(error){return {success:false,error:error.message};}
+  });
+  ipcMain.handle('mutate-mysql-procedure', async (event, request) => {
+    const client=state.client;let batch;
+    try{if(state.type!=='mysql'||!client)throw new Error('A MySQL connection is required.');if(sqlBatches.isReserved())throw new Error('Procedure changes require an idle SQL workspace.');batch=sqlBatches.enter(event,null);return {...await client.mutateProcedure(request),...getMainTransactionStateResponse(client)};}
+    catch(error){return {success:false,error:error.message,...getMainTransactionStateResponse(client)};}
+    finally{if(batch)batch.active=false;}
+  });
   ipcMain.handle('get-ai-database-context', async () => {
     const client = state.client;
     try {
@@ -91,6 +195,9 @@ function registerDatabaseHandlers({ getValidatedSettings, ipcMain, state, t, cre
         candidate = new OracleClient({ createSshHostVerifier });
       } else if (config.dbType === 'postgres' || config.dbType === 'postgresql') {
         candidate = new PostgresClient({ createSshHostVerifier });
+      } else if (config.dbType === 'mysql') {
+        const MysqlClient = require('../mysql/mysqlClient');
+        candidate = new MysqlClient({ createSshHostVerifier });
       } else {
         throw new Error(t("unsupported_database_type"));
       }
@@ -107,7 +214,7 @@ function registerDatabaseHandlers({ getValidatedSettings, ipcMain, state, t, cre
       state.client = candidate;
       state.type = config.dbType;
       const aiHistoryScope = createAiHistoryScope(finalConfig);
-      state.aiHistoryScopes.set(aiHistoryScope, config.dbType === 'postgres' ? 'postgresql' : config.dbType);
+      if (aiHistoryScope) state.aiHistoryScopes.set(aiHistoryScope, config.dbType === 'postgres' ? 'postgresql' : config.dbType);
       return { success: true, aiHistoryScope };
     } catch (err) {
       try { await candidate?.disconnect(); } catch {
@@ -122,7 +229,8 @@ function registerDatabaseHandlers({ getValidatedSettings, ipcMain, state, t, cre
   function getMainTransactionStateResponse(dbClient) {
     if (typeof dbClient?.getMainTransactionState !== 'function') return {};
     const state = dbClient.getMainTransactionState();
-    return typeof state === 'boolean' ? { hasUncommittedTx: state } : {};
+    return { ...(typeof state === 'boolean' ? { hasUncommittedTx: state } : {}),
+      ...(typeof dbClient.getTransactionDetails === 'function' ? dbClient.getTransactionDetails() : {}) };
   }
 
   // Always execute SQL on the main connection.
@@ -146,7 +254,7 @@ function registerDatabaseHandlers({ getValidatedSettings, ipcMain, state, t, cre
       return { success: true, ...(await dbClient.execute(sqlText, processedBinds, schema, false, false)), ...getMainTransactionStateResponse(dbClient), ...(batch?.cancelled ? { cancelled: true } : {}) };
     } catch (err) {
       const position = Number(err.position);
-      return { success: false, error: err.message, ...(Number.isSafeInteger(position) && position > 0 ? { errorPosition: position } : {}), ...(typeof err.where === 'string' ? { errorContext: err.where } : {}), ...getMainTransactionStateResponse(dbClient), ...(batch?.cancelled ? { cancelled: true } : {}) };
+      return { success: false, error: err.message, ...(state.type==='mysql'&&Number.isSafeInteger(err.mysqlErrorLine)&&err.mysqlErrorLine>0?{mysqlErrorLine:err.mysqlErrorLine}:{}), ...(Number.isSafeInteger(position) && position > 0 ? { errorPosition: position } : {}), ...(typeof err.where === 'string' ? { errorContext: err.where } : {}), ...getMainTransactionStateResponse(dbClient), ...(batch?.cancelled ? { cancelled: true } : {}) };
     } finally { if (batch) batch.active = false; }
   });
 
@@ -355,9 +463,9 @@ function registerDatabaseHandlers({ getValidatedSettings, ipcMain, state, t, cre
     let batch;
     try {
       batch = sqlBatches.enter(event, batchId);
-      return { success: true, ...(await dbClient.explain(sqlText, binds, schema)), ...(batch?.cancelled ? { cancelled: true } : {}) };
+      return { success: true, ...(await dbClient.explain(sqlText, binds, schema)), ...(state.type === 'mysql' ? getMainTransactionStateResponse(dbClient) : {}), ...(batch?.cancelled ? { cancelled: true } : {}) };
     } catch (err) {
-      return { success: false, error: err.message, ...(batch?.cancelled ? { cancelled: true } : {}) };
+      return { success: false, error: err.message, ...(state.type === 'mysql' ? getMainTransactionStateResponse(dbClient) : {}), ...(batch?.cancelled ? { cancelled: true } : {}) };
     } finally { if (batch) batch.active = false; }
   });
 
@@ -467,13 +575,16 @@ function registerDatabaseHandlers({ getValidatedSettings, ipcMain, state, t, cre
 
   ipcMain.handle('execute-stored', async (event, params) => {
     const dbClient = state.client;
+    let batch;
     try {
+      if(state.type==='mysql'){if(sqlBatches.isReserved())throw new Error('Procedure execution requires an idle SQL workspace.');batch=sqlBatches.enter(event,null);}
       if (dbClient && typeof dbClient.executeStored === 'function') {
         return { success: true, ...(await dbClient.executeStored(params)), ...getMainTransactionStateResponse(dbClient) };
       } else {
         throw new Error(t("unsupported_database_type"));
       }
     } catch (err) { return { success: false, error: err.message, ...getMainTransactionStateResponse(dbClient) }; }
+    finally{if(batch)batch.active=false;}
   });
 
   ipcMain.handle('cancel-execution', async (event, batchId) => {
@@ -508,6 +619,10 @@ function registerDatabaseHandlers({ getValidatedSettings, ipcMain, state, t, cre
   });
 
   ipcMain.handle('execute-trace', async (event, params) => {
+    if(state.type==='mysql'){
+      let batch;try{if(!state.client)throw new Error('MySQL is not connected.');batch=sqlBatches.enter(event,null);return {success:true,...await require('../mysql/traceService').executeMysqlTrace(state.client,params)};}
+      catch(error){return {success:false,error:error.message};}finally{if(batch)batch.active=false;}
+    }
     const dbClient = state.client;
     try {
       if (!dbClient) {
@@ -570,7 +685,8 @@ function registerDatabaseHandlers({ getValidatedSettings, ipcMain, state, t, cre
   ipcMain.handle('delete-trace-db', async (event, target) => {
     try {
       const objectName = createTraceIdentity(state.client?.lastConfig, target);
-      if (state.type === 'oracle') {
+      if(state.type==='mysql'){require('../services/traceStore').createTraceDatabase('mysql').deleteDatabase(objectName);}
+      else if (state.type === 'oracle') {
         OracleTraceDatabase.deleteDatabase(objectName);
       } else if (state.type === 'postgres' || state.type === 'postgresql') {
         PgTraceDatabase.deleteDatabase(objectName);
@@ -587,13 +703,13 @@ function registerDatabaseHandlers({ getValidatedSettings, ipcMain, state, t, cre
     try {
       const dbType = state.type === 'postgres' ? 'postgresql' : state.type;
       if (params?.dbType !== dbType ||
-          !['oracle', 'postgresql'].includes(dbType)) {
+          !['oracle', 'postgresql', 'mysql'].includes(dbType)) {
         throw new Error('接続先が変更されました。対象ウィンドウから再度依頼してください。');
       }
       const identity = createTraceIdentity(state.client?.lastConfig, params);
       const approvedBytes = params.approvedBytes ?? 1_000_000;
       if (!Number.isSafeInteger(approvedBytes) || approvedBytes < 1_000_000) throw new Error('Invalid approved trace size.');
-      const directory = dbType === 'oracle' ? 'oracle' : 'postgres';
+      const directory = dbType === 'mysql' ? 'mysql' : dbType === 'oracle' ? 'oracle' : 'postgres';
       const filePath = resolveTraceFile(getStoragePaths().traceDirectory, directory, identity);
       file = await fs.promises.open(filePath, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0) | (fs.constants.O_NONBLOCK || 0));
       const status = await file.stat();
@@ -638,7 +754,8 @@ function registerDatabaseHandlers({ getValidatedSettings, ipcMain, state, t, cre
       const objectName = createTraceIdentity(state.client?.lastConfig, target);
       let DBClass = null;
 
-      if (state.type === 'oracle') {
+      if(state.type==='mysql'){DBClass=require('../services/traceStore').createTraceDatabase('mysql');}
+      else if (state.type === 'oracle') {
         DBClass = OracleTraceDatabase;
       } else if (state.type === 'postgres' || state.type === 'postgresql') {
         DBClass = PgTraceDatabase;

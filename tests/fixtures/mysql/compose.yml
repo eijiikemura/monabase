@@ -1,0 +1,23 @@
+# Copyright 2026 eiji ikemura
+# SPDX-License-Identifier: Apache-2.0
+name: monabase-mysql-test
+services:
+  mysql:
+    image: mysql:8.4.13@sha256:a81d043930e51745522bd5c430961cf8286f0a23f0a9a2a6e0108f7ea71b0902
+    ports:
+      - '127.0.0.1:13306:3306'
+    environment:
+      MYSQL_DATABASE: mb_test
+      MYSQL_USER: test
+      MYSQL_PASSWORD: test
+      MYSQL_ROOT_PASSWORD: disposable_mysql_admin_only
+    volumes:
+      - ../../../local/mysql-test-tls:/etc/mysql-test-tls:ro
+    tmpfs:
+      - /var/lib/mysql
+    command: ['--local-infile=OFF', '--log-bin-trust-function-creators=ON', '--character-set-server=utf8mb4', '--ssl-ca=/etc/mysql-test-tls/ca.pem', '--ssl-cert=/etc/mysql-test-tls/server-cert.pem', '--ssl-key=/etc/mysql-test-tls/server-key.pem']
+    healthcheck:
+      test: ['CMD-SHELL', 'MYSQL_PWD=$$MYSQL_PASSWORD mysql -h 127.0.0.1 -u test mb_test -e "SELECT 1" >/dev/null 2>&1']
+      interval: 2s
+      timeout: 5s
+      retries: 60

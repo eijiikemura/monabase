@@ -11,7 +11,7 @@ import { getErrorMessage } from "@/shared/utils/errorUtils";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { sql, PostgreSQL } from '@codemirror/lang-sql'; 
+import { sql, PostgreSQL, MySQL } from '@codemirror/lang-sql';
 import { plsqlDialect, oracleFunctionHighlighting } from "../oracle/windows/common/plsqlDialect"; 
 import { ipcRenderer } from "@/shared/api/desktop";
 
@@ -24,6 +24,7 @@ export interface VersionControlTabProps {
   tableName?: string;
   currentSource: string;
   isSourceLoading?: boolean;
+  isActive?: boolean;
   onRefresh?: () => void;
 }
 
@@ -38,6 +39,8 @@ export function useVersionControlTab({
 }: VersionControlTabProps) {
   const { t } = useTranslation();
   const connectionScope = useAiHistoryConnectionScope();
+  const gitDbType = dbType.toUpperCase() === 'MYSQL' ? 'MYSQL' : ['POSTGRES', 'POSTGRESQL'].includes(dbType.toUpperCase()) ? 'POSTGRESQL' : 'ORACLE';
+  const historyDbType = gitDbType === 'MYSQL' ? 'mysql' : gitDbType === 'POSTGRESQL' ? 'postgresql' : 'oracle';
   const isPg = dbType.toUpperCase() === 'POSTGRESQL' || dbType.toUpperCase() === 'POSTGRES';
 
   const [activeSubTab, setActiveSubTab] = useState<number>(0);
@@ -46,7 +49,7 @@ export function useVersionControlTab({
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [isAiSummaryLoading, setIsAiSummaryLoading] = useState(false);
   const summaryRequest = useRef(0);
-  const summaryContext = JSON.stringify([connectionScope, isPg, schema, objectType, objectName, signature, tableName, currentSource]);
+  const summaryContext = JSON.stringify([connectionScope, gitDbType, schema, objectType, objectName, signature, tableName, currentSource]);
   const latestSummaryContext = useRef({ key: summaryContext, message: commitMessage });
   latestSummaryContext.current = { key: summaryContext, message: commitMessage };
   useEffect(() => () => { summaryRequest.current++; }, []);
@@ -83,15 +86,16 @@ export function useVersionControlTab({
     setSelectedHistory(null);
     setPastSource('');
     return () => { pending.history++; pending.content++; };
-  }, [isPg, schema, objectType, objectName, signature, tableName, activeSubTab]);
+  }, [gitDbType, isPg, schema, objectType, objectName, signature, tableName, activeSubTab]);
 
   const codeMirrorExtensions = useMemo(() => {
+    if (gitDbType === 'MYSQL') return [sql({ dialect: MySQL })];
     if (isPg) {
       return [sql({ dialect: PostgreSQL })];
     } else {
       return [sql({ dialect: plsqlDialect }), oracleFunctionHighlighting];
     }
-  }, [isPg]);
+  }, [gitDbType, isPg]);
 
   const checkGitStatus = useCallback(async () => {
     try {
@@ -113,7 +117,7 @@ export function useVersionControlTab({
     setHistoryLoading(true);
     try {
       const res = await ipcRenderer.invoke('git-get-history', {
-        dbType: isPg ? 'POSTGRESQL' : 'ORACLE',
+        dbType: gitDbType,
         schema: schema,
         objectType: objectType.toUpperCase(),
         objectName: objectName, tableName, signature, page
@@ -132,7 +136,7 @@ export function useVersionControlTab({
     } finally {
       if (request === requests.current.history) setHistoryLoading(false);
     }
-  }, [isLocalRepo, isPg, schema, objectType, objectName, signature, tableName, t]);
+  }, [isLocalRepo, gitDbType, isPg, schema, objectType, objectName, signature, tableName, t]);
 
   useEffect(() => {
     if (activeSubTab === 1 || activeSubTab === 0) {
@@ -201,7 +205,7 @@ export function useVersionControlTab({
     setIsAiSummaryLoading(true);
     try {
       if (!connectionScope) throw new Error(t('ai_history_connection_required'));
-      const identity: AiSourceIdentity = { connectionScope, dbType: isPg ? 'postgresql' : 'oracle', schema, objectName,
+      const identity: AiSourceIdentity = { connectionScope, dbType: historyDbType, schema, objectName,
         category: category as AiSourceIdentity['category'], ...(signature !== undefined ? { signature } : {}),
         ...(tableName !== undefined ? { tableName } : {}) };
       const result = await ipcRenderer.invoke('load-ai-source-history', identity);
@@ -219,7 +223,7 @@ export function useVersionControlTab({
     setIsProcessing(true);
     try {
       const res = await ipcRenderer.invoke('git-commit', {
-        dbType: isPg ? 'POSTGRESQL' : 'ORACLE',
+        dbType: gitDbType,
         schema: schema,
         objectType: objectType.toUpperCase(),
         objectName: objectName, tableName, signature,
@@ -272,7 +276,7 @@ export function useVersionControlTab({
     setIsProcessing(true);
     try {
       const res = await ipcRenderer.invoke('git-get-file-content', {
-        dbType: isPg ? 'POSTGRESQL' : 'ORACLE',
+        dbType: gitDbType,
         schema: schema,
         objectType: objectType.toUpperCase(),
         objectName: objectName, tableName, signature,
@@ -299,7 +303,7 @@ export function useVersionControlTab({
     setPastSource(t("fetching"));
     try {
       const res = await ipcRenderer.invoke('git-get-file-content', {
-        dbType: isPg ? 'POSTGRESQL' : 'ORACLE',
+        dbType: gitDbType,
         schema: schema,
         objectType: objectType.toUpperCase(),
         objectName: objectName, tableName, signature,

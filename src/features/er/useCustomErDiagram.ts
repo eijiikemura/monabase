@@ -62,6 +62,9 @@ function parseErDiagram(source: unknown, invalidMessage: string): { nodes: Node[
 export function useCustomErDiagram({ isActive = true, schemas, initialSchema, dbType = 'oracle', dbName = '', userName = '' }: ErDiagramWindowProps) {
   const { t } = useTranslation();
   const isPg = dbType.toLowerCase().startsWith('postgres');
+  const isMysql = dbType.toLowerCase() === 'mysql';
+  const database = isMysql ? 'mysql' : isPg;
+  const storageDb = isMysql ? 'MYSQL' : isPg ? 'POSTGRESQL' : 'ORACLE';
 
   const { isLoading, beginLoading, endLoading, isBusy } = useLoadingCounter(true);
   const initializationStarted = useRef(false);
@@ -129,7 +132,7 @@ export function useCustomErDiagram({ isActive = true, schemas, initialSchema, db
   const historyRequestRef = useRef(0);
   const historyListRequestRef = useRef(0);
   const mountedRef = useRef(true);
-  const historyTarget = JSON.stringify([isPg, erDiagramName]);
+  const historyTarget = JSON.stringify([storageDb, erDiagramName]);
   const historyContextRef = useRef({ target: historyTarget, comparing: isCompareMode });
   historyContextRef.current = { target: historyTarget, comparing: isCompareMode };
   historyPreviewRef.current = historyPreview;
@@ -143,9 +146,9 @@ export function useCustomErDiagram({ isActive = true, schemas, initialSchema, db
   }, [updateHistoryPreview]);
   const setErDiagramName = useCallback((name: string) => {
     clearHistoryPreview();
-    historyContextRef.current.target = JSON.stringify([isPg, name]);
+    historyContextRef.current.target = JSON.stringify([storageDb, name]);
     setErDiagramNameState(name);
-  }, [clearHistoryPreview, isPg]);
+  }, [clearHistoryPreview, storageDb]);
   useEffect(() => {
     mountedRef.current = true;
     const requests = historyRequestRef, lists = historyListRequestRef;
@@ -231,7 +234,7 @@ export function useCustomErDiagram({ isActive = true, schemas, initialSchema, db
 
     try {
       const res = await ipcRenderer.invoke('git-get-history-er', {
-        dbType: isPg ? 'POSTGRESQL' : 'ORACLE',
+        dbType: storageDb,
         objectName: filename, page
       });
       if (!isCurrent()) return;
@@ -248,7 +251,7 @@ export function useCustomErDiagram({ isActive = true, schemas, initialSchema, db
     } finally {
       if (isCurrent()) setHistoryLoading(false);
     }
-  }, [isLocalRepo, isSaved, erDiagramName, isPg, t, historyTarget]);
+  }, [isLocalRepo, isSaved, erDiagramName, storageDb, t, historyTarget]);
 
   useEffect(() => {
     if (customMode === 'design') {
@@ -278,21 +281,21 @@ export function useCustomErDiagram({ isActive = true, schemas, initialSchema, db
 
   const loadSavedFilesList = useCallback(async () => {
     try {
-      const res = await ipcRenderer.invoke('get-er-diagrams', isPg ? 'POSTGRESQL' : 'ORACLE');
+      const res = await ipcRenderer.invoke('get-er-diagrams', storageDb);
       if (res && res.success) {
         setSavedFiles(res.files);
       }
     } catch (e) {
       console.warn('Failed to load saved ER diagrams', e);
     }
-  }, [isPg]);
+  }, [storageDb]);
 
   useEffect(() => {
     if (!isActive || initializationStarted.current) return;
     initializationStarted.current = true;
     const initData = async () => {
       try {
-        const fetchedSchemas = await fetchErSchemas(isPg).catch((error: unknown) => {
+        const fetchedSchemas = await fetchErSchemas(database).catch((error: unknown) => {
           alert(t("failed_to_retrieve_information_2") + getErrorMessage(error));
           return schemas || [];
         });
@@ -309,7 +312,7 @@ export function useCustomErDiagram({ isActive = true, schemas, initialSchema, db
       }
     };
     void initData();
-  }, [isActive, initialSchema, schemas, isPg, dbName, userName, loadSavedFilesList, endLoading, t]);
+  }, [isActive, initialSchema, schemas, isPg, database, dbName, userName, loadSavedFilesList, endLoading, t]);
 
   const handleChangeCustomSchema = useCallback((e: SelectChangeEvent<string>) => {
     if (isBusy()) return;
@@ -409,7 +412,7 @@ export function useCustomErDiagram({ isActive = true, schemas, initialSchema, db
     beginLoading();
     try {
       const res = await ipcRenderer.invoke('load-er-diagram', {
-        dbType: isPg ? 'POSTGRESQL' : 'ORACLE',
+        dbType: storageDb,
         objectName: filename
       });
       if (!res || !res.success) throw new Error(res?.error || t('invalid_er_diagram_structure'));
@@ -420,7 +423,10 @@ export function useCustomErDiagram({ isActive = true, schemas, initialSchema, db
       let loadedNodes = data.nodes;
 
       let sqlTabComments, sqlColComments;
-      if (isPg) {
+      if (isMysql) {
+        sqlTabComments = `SELECT TABLE_NAME,CASE WHEN TABLE_TYPE='VIEW' THEN '' ELSE TABLE_COMMENT END AS COMMENTS FROM information_schema.TABLES WHERE CAST(TABLE_SCHEMA AS BINARY)=CAST(:owner AS BINARY)`;
+        sqlColComments = `SELECT TABLE_NAME,COLUMN_NAME,COLUMN_COMMENT AS COMMENTS FROM information_schema.COLUMNS WHERE CAST(TABLE_SCHEMA AS BINARY)=CAST(:owner AS BINARY)`;
+      } else if (isPg) {
         sqlTabComments = `SELECT c.relname AS "TABLE_NAME", obj_description(c.oid) AS "COMMENTS" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = :owner AND c.relkind IN ('r', 'v', 'p')`;
         sqlColComments = `SELECT c.relname AS "TABLE_NAME", a.attname AS "COLUMN_NAME", col_description(c.oid, a.attnum) AS "COMMENTS" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace JOIN pg_attribute a ON a.attrelid = c.oid WHERE n.nspname = :owner AND c.relkind IN ('r', 'v', 'p') AND a.attnum > 0 AND NOT a.attisdropped`;
       } else {
@@ -483,7 +489,7 @@ export function useCustomErDiagram({ isActive = true, schemas, initialSchema, db
       
       if (isLocalRepo) {
         const res = await runGitOperation(t, 'git-commit-er', {
-          dbType: isPg ? 'POSTGRESQL' : 'ORACLE',
+          dbType: storageDb,
           objectName: erDiagramName + '.json',
           sourceText: data,
           message: commitMessage || t("save_er_diagram", { name: erDiagramName })
@@ -499,7 +505,7 @@ export function useCustomErDiagram({ isActive = true, schemas, initialSchema, db
         }
       } else {
         const res = await ipcRenderer.invoke('save-er-diagram', {
-          dbType: isPg ? 'POSTGRESQL' : 'ORACLE',
+          dbType: storageDb,
           objectName: erDiagramName + '.json',
           sourceText: data
         });
@@ -528,7 +534,7 @@ export function useCustomErDiagram({ isActive = true, schemas, initialSchema, db
     if (window.confirm(t("are_you_sure_you_want_to_delete", { filename }))) {
       try {
         const res = await runGitOperation(t, 'delete-er-diagram', {
-          dbType: isPg ? 'POSTGRESQL' : 'ORACLE',
+          dbType: storageDb,
           objectName: filename
         });
         if (res && res.success) {
@@ -547,7 +553,7 @@ export function useCustomErDiagram({ isActive = true, schemas, initialSchema, db
   const isObjectAdded = (object: DatabaseObject) => object.schema === customSchema && customNodes.some(node => node.id === object.name);
   const handleAddObjectsToCustomCanvas = async (objects: DatabaseObject[]) => {
     if (addingObjects.current) throw new Error(t('objects_are_being_added'));
-    const expectedDb = isPg ? 'postgresql' : 'oracle';
+    const expectedDb = isMysql ? 'mysql' : isPg ? 'postgresql' : 'oracle';
     if (!customSchema || objects.some(object => object.dbType !== expectedDb || object.schema !== customSchema || !['TABLE', 'VIEW'].includes(object.category))) {
       throw new Error(t('er_select_table_view_in_schema'));
     }
@@ -558,7 +564,7 @@ export function useCustomErDiagram({ isActive = true, schemas, initialSchema, db
     try {
       const nodes: Node[] = [];
       for (const object of selected) {
-        const data = await fetchErDiagramData(isPg, customSchema, object.name, showComments, showDataType, logicalMode, true);
+        const data = await fetchErDiagramData(database, customSchema, object.name, showComments, showDataType, logicalMode, true);
         const node = data.nodes.find(candidate => candidate.id === object.name);
         if (!node) throw new Error(t('failed_to_fetch_columns') + ` ${object.name}`);
         nodes.push(node);
@@ -671,7 +677,7 @@ export function useCustomErDiagram({ isActive = true, schemas, initialSchema, db
     }
     beginLoading();
     try {
-      const data = await fetchErDiagramData(isPg, customSchema, null, showComments, showDataType, logicalMode, true);
+      const data = await fetchErDiagramData(database, customSchema, null, showComments, showDataType, logicalMode, true);
       if (!mountedRef.current) return;
       const preview = buildErSyncPreview(currentDocument, data.nodes);
       if (preview.before !== erDocumentKey(documentRef.current)) { alert(t('er_sync_stale')); return; }
@@ -775,7 +781,7 @@ export function useCustomErDiagram({ isActive = true, schemas, initialSchema, db
     updateHistoryPreview({ status: 'loading', target, revision, nodes: [], edges: [] });
     try {
       const res = await ipcRenderer.invoke('git-get-file-content-er', {
-        dbType: isPg ? 'POSTGRESQL' : 'ORACLE',
+        dbType: storageDb,
         objectName: erDiagramName.endsWith('.json') ? erDiagramName : erDiagramName + '.json',
         commitId: revision.fullId
       });
@@ -886,7 +892,7 @@ export function useCustomErDiagram({ isActive = true, schemas, initialSchema, db
   }, [pastEdges, customEdges]);
 
   return {
-    t, isPg, isLoading, schemaList, customSchema,
+    t, isPg, dbType: isMysql ? 'mysql' as const : isPg ? 'postgresql' as const : 'oracle' as const, isLoading, schemaList, customSchema,
     isDirty, syncPreview, setSyncPreview, handleApplySync,
     handleUndo, handleRedo, canUndo: edits.current.past.length > 0, canRedo: edits.current.future.length > 0,
     customMode, setCustomMode, erDiagramName, setErDiagramName,

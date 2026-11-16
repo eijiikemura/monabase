@@ -153,7 +153,7 @@ selection, saving, scope and the separate website theme, with all three styles
 captured in English and Japanese. Sections may include an optional `image` to
 place a screenshot next to its explanation.
 
-The content model currently contains **37 guide/support pages in each language**,
+The content model currently contains **38 guide/support pages in each language**,
 including transaction control, Contact & Support and Privacy Policy. Oracle-only
 and PostgreSQL-only screens carry their supported database badge. Screenshot-backed
 guides use separate English/Japanese images captured in the matching app language.
@@ -217,3 +217,27 @@ are independent. Website deployment does not publish desktop releases.
 Authored source and copy follow the repository's Apache License 2.0. Third-party
 Astro/Starlight dependencies retain their respective licenses. Images use the
 repository's existing MonaBase logo and fictional demo captures.
+
+
+## MySQL guide coverage
+
+The English/Japanese landing page and supported guides include MySQL badges.
+Database-specific guides include authored MySQL notes; shared settings, styles
+and workspace pages do not need a MySQL-only differences section. MySQL-specific explanations remain alongside Oracle/PostgreSQL notes, without
+a separate MySQL operations and differences table.
+Operation headings use their own titles without an Oracle/PostgreSQL suffix;
+engine-specific restrictions are described in the relevant text.
+The schema guide also covers MySQL database creation/defaults, while its
+PostgreSQL ownership/ACL controls remain distinct. Unsupported object categories
+(packages/types/independent sequences/materialized views/synonyms/DB links and
+Oracle-only administration) do not receive a MySQL badge. Existing screenshots
+remain Oracle/PostgreSQL examples, with captions identifying that scope. No new
+UI screenshot is presented as a MySQL capture. i18n:extract remains the source-key
+workflow; content generation, strict checks and built-page verification check
+both the positive and negative capability badges.
+
+The start group also includes `guides/database-support/`, a bilingual reference for actual verified server versions (Oracle 23.26.3.0.0, PostgreSQL 16.15, MySQL 8.4.13). Landing and guide overview text uses the unversioned MySQL name. MySQL notes are nested under Database-specific behavior, following the Oracle/PostgreSQL notes; they are not a separate introductory feature block. The table describes local verification servers, whose versions were rechecked with read-only connections on November 16, 2026; this does not rerun the feature test suite. The manual describes macOS and MySQL as available capabilities without release-history annotations; those belong in release notes. The start sidebar explicitly places Database support directly after Getting started.
+
+Database-specific behavior sections are omitted when their only content is a MySQL note. The transaction comparison table covers Oracle, PostgreSQL and MySQL, including InnoDB DML, implicit DDL commits and error handling.
+
+The Session, Lock, Object Privilege, User/Role and Tablespace administration guides each include three dedicated MySQL reference tables alongside the existing Oracle/PostgreSQL tables (15 tables, 48 rows total). They describe list filters, details, actions and permission/read-only limits using the current MySQL UI and docs/MYSQL.md as references. These belong to the page’s normal operation reference, not the removed generic MySQL operations and differences block.

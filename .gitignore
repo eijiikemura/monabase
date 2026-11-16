@@ -42,3 +42,6 @@ AuthKey_*.p8
 
 # Windows Explorer metadata
 Thumbs.db
+
+# Local video production files
+/monabase-video/

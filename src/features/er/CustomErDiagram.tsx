@@ -499,7 +499,7 @@ export default function CustomErDiagram({ logic, nodeTypes }: { logic: ReturnTyp
         </DialogActions>
       </Dialog>
 
-      <ObjectPickerDialog open={logic.addTableDialogOpen} dbType={logic.isPg ? 'postgresql' : 'oracle'}
+      <ObjectPickerDialog open={logic.addTableDialogOpen} dbType={logic.dbType || (logic.isPg ? 'postgresql' : 'oracle')}
         fixedSchema={logic.customSchema} categories={ER_OBJECT_CATEGORIES} title={t('add_tables_and_views')}
         disabled={isLoading} isObjectAdded={logic.isObjectAdded} onConfirm={logic.handleAddObjectsToCustomCanvas}
         onClose={() => logic.setAddTableDialogOpen(false)} />

@@ -19,7 +19,7 @@ function createTraceIdentity(config, target) {
 }
 
 function resolveTraceFile(directory, database, identity) {
-  if (!['oracle', 'postgres'].includes(database)) throw new Error('Invalid trace database.');
+  if (!['oracle', 'postgres', 'mysql'].includes(database)) throw new Error('Invalid trace database.');
   // String identities remain available for isolated adapters/tests, never as raw paths.
   const canonical = typeof identity === 'string' ? { objectName: identity } : identity;
   if (!canonical || typeof canonical.objectName !== 'string' || !canonical.objectName) throw new Error('Invalid trace identity.');

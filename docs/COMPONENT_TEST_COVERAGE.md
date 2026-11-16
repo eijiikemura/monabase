@@ -1,6 +1,6 @@
 # Component test coverage map
 
-This audit covers all **129 TSX files** under `src/`, including helper/entry files. It was reviewed on 2026-10-29; the shared Help menu and localized About links were added to the map on 2026-11-01, and AI request evidence coverage was updated on 2026-11-02. A test-file reference means the stated scenarios were inspected; references and test counts are **not** line/branch coverage percentages. Private configuration and credentials are not needed for these checks.
+This audit covers all **175 TSX files** under `src/`, including helper/entry files. It was reviewed on 2026-10-29; the shared Help menu and localized About links were added to the map on 2026-11-01, and AI request evidence coverage was updated on 2026-11-02. A test-file reference means the stated scenarios were inspected; references and test counts are **not** line/branch coverage percentages. Private configuration and credentials are not needed for these checks.
 
 - **D**: the real component/view function and its callbacks/state are exercised by unit tests. Visual libraries/child boundaries may be replaced; this alone does not verify browser layout, React error propagation or native events.
 - **W**: the component's real controller/hook/service has regression assertions. It is not a claim that the component's JSX is unit-rendered. The screen column records separate Electron coverage where present.
@@ -52,7 +52,7 @@ Remaining limits: none of these assertions promises all branches, all nested com
 | [src/features/data-grid/tableResultHeaders.tsx](../src/features/data-grid/tableResultHeaders.tsx) | H: [component-diagrams.test.cjs](../tests/component-diagrams.test.cjs) | Applied filter/sort labels and immutable/disabled columns | — |
 | [src/features/er/AutoErDiagram.tsx](../src/features/er/AutoErDiagram.tsx) | D: [component-diagrams.test.cjs](../tests/component-diagrams.test.cjs), [er-metadata-correctness.test.cjs](../tests/er-metadata-correctness.test.cjs) | Loading/empty export, shared controller, embedded mode and metadata | Automatic ER draw and export |
 | [src/features/er/CustomErDiagram.tsx](../src/features/er/CustomErDiagram.tsx) | D: [git-er-history.test.cjs](../tests/git-er-history.test.cjs), [er-editor.test.cjs](../tests/er-editor.test.cjs) | History source vs current DB, edits, undo/redo and schema identity | Add objects, undo/redo, Git commit and export |
-| [src/features/er/ErDiagramWindow.tsx](../src/features/er/ErDiagramWindow.tsx) | D: [component-diagrams.test.cjs](../tests/component-diagrams.test.cjs), [er-metadata-correctness.test.cjs](../tests/er-metadata-correctness.test.cjs) | Logical/physical node labels, stable handles and controller metadata | Automatic/custom tab switching |
+| [src/features/er/ErDiagramWindow.tsx](../src/features/er/ErDiagramWindow.tsx) | W: [er-metadata-correctness.test.cjs](../tests/er-metadata-correctness.test.cjs), Electron: [sidebar.cjs](../tests/e2e/sidebar.cjs) | Controller metadata and automatic/custom tab integration; node display is tested independently below | Automatic/custom tab switching |
 | [src/features/git/GitConflictDialog.tsx](../src/features/git/GitConflictDialog.tsx) | D: [git-review-ui.test.cjs](../tests/git-review-ui.test.cjs) | Edited resolution retained on failure; completion guards | — |
 | [src/features/git/GitHistoryPagination.tsx](../src/features/git/GitHistoryPagination.tsx) | D: [component-controls.test.cjs](../tests/component-controls.test.cjs) | Paging boundaries and loading guards | — |
 | [src/features/git/GitRevisionCompareDialog.tsx](../src/features/git/GitRevisionCompareDialog.tsx) | D: [git-review-ui.test.cjs](../tests/git-review-ui.test.cjs) | Reversed replies, immutable revision content and read-only comparison | — |
@@ -146,3 +146,147 @@ Remaining limits: none of these assertions promises all branches, all nested com
 | [src/features/type/TypeInformationTab.tsx](../src/features/type/TypeInformationTab.tsx) | D: [component-information.test.cjs](../tests/component-information.test.cjs) | Stale reads, retry, unmount, escaped enum labels and body diagnostics | — |
 | [src/features/view/ViewMetadataTab.tsx](../src/features/view/ViewMetadataTab.tsx) | D: [component-previews.test.cjs](../tests/component-previews.test.cjs) | Previous results on failure, dependencies and overlapping-read guards | — |
 | [src/main.tsx](../src/main.tsx) | H: entry point | Bootstrap, not a reusable component; production renderer startup | Both production workspaces mount successfully |
+
+| [src/features/mysql/AppMysql.tsx](../src/features/mysql/AppMysql.tsx) | Electron: [mysql.cjs](../tests/e2e/mysql.cjs) | MySQL workspace connection, shared transaction status, commit/rollback, SQL/source tabs, Git/AI integration | Production renderer with mock IPC; opt-in disposable MySQL execution |
+| [src/features/mysql/SqlWindow.tsx](../src/features/mysql/SqlWindow.tsx) | D: [mysql-sql-workspace.test.cjs](../tests/mysql-sql-workspace.test.cjs), Electron: [mysql.cjs](../tests/e2e/mysql.cjs), backend: [client.test.cjs](../tests/mysql/client.test.cjs) | Connection-database default without a selector, qualified cross-database SQL, execution/AI/tuning scope, results and real InnoDB transactions | Same renderer/IPC with an opt-in disposable MySQL backend |
+
+| [src/features/mysql/Sidebar.tsx](../src/features/mysql/Sidebar.tsx) | D: [mysql-ui-components.test.cjs](../tests/mysql-ui-components.test.cjs) | Oracle-style table expansion, selection, guarded context menus and creation/transfer entry points | Inline tables, search/cache, context operations and keyboard resize in [mysql.cjs](../tests/e2e/mysql.cjs) |
+| [src/features/mysql/LoadingOverlay.tsx](../src/features/mysql/LoadingOverlay.tsx) | D: [mysql-ui-components.test.cjs](../tests/mysql-ui-components.test.cjs) | Light/dark/Mona appearance, paw icon and cancellation availability | Production SQL/transaction loading overlay |
+
+| [src/features/mysql/SourceWindow.tsx](../src/features/mysql/SourceWindow.tsx) | Electron: [mysql.cjs](../tests/e2e/mysql.cjs), real data: [git-ai.test.cjs](../tests/mysql/git-ai.test.cjs) | Complete native source, local drafts, AI review and shared Git history | MySQL definition selection and Git/AI workflows |
+
+| [src/features/mysql/VerticalSplit.tsx](../src/features/mysql/VerticalSplit.tsx) | D: [mysql-ui-components.test.cjs](../tests/mysql-ui-components.test.cjs), shared behavior: [sql-window-workflow.test.cjs](../tests/sql-window-workflow.test.cjs), Electron: [mysql.cjs](../tests/e2e/mysql.cjs) | Shared SQL drag/keyboard/size limits, Oracle initial table heights, accessible handle and bounded panes | Actual SQL/data/structure/statistics drag and tab-height retention |
+| [src/features/mysql/table/TableWindow.tsx](../src/features/mysql/table/TableWindow.tsx) | W: [mysql-table-controller.test.cjs](../tests/mysql-table-controller.test.cjs), Electron: [mysql.cjs](../tests/e2e/mysql.cjs) | Initial load, transaction refresh, isolated tab mounting and native source refresh | Six native table tabs |
+| [src/features/mysql/table/TableSourceTab.tsx](../src/features/mysql/table/TableSourceTab.tsx) | D: [mysql-ui-components.test.cjs](../tests/mysql-ui-components.test.cjs), Electron: [mysql.cjs](../tests/e2e/mysql.cjs) | Direct shared VersionControlTab, deferred source refresh, error/retry guards and no coding-AI draft editor | Real SHOW CREATE, read-only source, Git commit and history |
+| [src/features/mysql/table/TableDataTab.tsx](../src/features/mysql/table/TableDataTab.tsx) | D/W: [mysql-ui-components.test.cjs](../tests/mysql-ui-components.test.cjs), [mysql-table.test.cjs](../tests/mysql-table.test.cjs), [mysql-table-controller.test.cjs](../tests/mysql-table-controller.test.cjs), real data: [table.test.cjs](../tests/mysql/table.test.cjs) | Exact values, row-image protection, filters, reversible writes and unavailable edit guards | Real cell/dialog edit, Commit/Rollback and deletion |
+| [src/features/mysql/table/TableMetadataTab.tsx](../src/features/mysql/table/TableMetadataTab.tsx) | D: [mysql-column-structure.test.cjs](../tests/mysql-column-structure.test.cjs), W: [mysql-table.test.cjs](../tests/mysql-table.test.cjs), real data: [table.test.cjs](../tests/mysql/table.test.cjs) | Ordered columns/indexes/checks/triggers, separate dimensions and PK/UK, initially collapsed checks/triggers, composite FKs, statistics and live AUTO_INCREMENT settings | Structure, relation and statistics tabs; reviewed comment/counter changes with native MySQL |
+| [src/features/mysql/table/TableDdlDialog.tsx](../src/features/mysql/table/TableDdlDialog.tsx) | D: [mysql-table.test.cjs](../tests/mysql-table.test.cjs) | Preview required, exact destructive/counter confirmation, duplicate request guard and restricted type/counter builder | SQL preview before real table comment DDL |
+| [src/features/mysql/table/TableErTab.tsx](../src/features/mysql/table/TableErTab.tsx) | Electron: [mysql.cjs](../tests/e2e/mysql.cjs), real metadata: [table.test.cjs](../tests/mysql/table.test.cjs) | Native relationship/column metadata and isolated MySQL rendering | Embedded ER renders a native table without grid warnings |
+
+| [src/features/er/TableNode.tsx](../src/features/er/TableNode.tsx) | D: [component-diagrams.test.cjs](../tests/component-diagrams.test.cjs), Electron: [mysql.cjs](../tests/e2e/mysql.cjs) | Standalone physical/logical names, comments, optional types and stable PK/FK handles without importing ER windows | MySQL development ESM startup and native related-table ER |
+
+| [src/features/mysql/CreateTableWindow.tsx](../src/features/mysql/CreateTableWindow.tsx) | D: [mysql-sidebar.test.cjs](../tests/mysql-sidebar.test.cjs), real data: [sidebar.test.cjs](../tests/mysql/sidebar.test.cjs) | Column editing, missing-field guards, SQL preview, duplicate-create refusal, keys/defaults/comments | Native create and automatic table-list refresh |
+| [src/features/mysql/SidebarTableDialog.tsx](../src/features/mysql/SidebarTableDialog.tsx) | D: [mysql-sidebar.test.cjs](../tests/mysql-sidebar.test.cjs), real data: [sidebar.test.cjs](../tests/mysql/sidebar.test.cjs) | Stale preview invalidation, immutable request target and no resend after an attempt | Reviewed copy/rename/analyze/truncate/drop with exact-name confirmation |
+
+MySQL SQL-window additions reuse the common result/log/history/transpose/export panel and pane controls. `tests/mysql-sql-workspace.test.cjs` exercises its execution hook, script selection/sequencing/privacy/plan snapshots and tuning context. Electron MySQL tests cover history opening a new tab, plan-tree display, offline tuning export and integrated AI preview. Dedicated disposable-DB coverage is in `tests/mysql/sql-window.test.cjs`. No new TSX component was added (142 TSX files).
+
+MySQL table parity adds `TableSourceTab` (143 TSX total). Data headers reuse the applied-condition decorator and Oracle single-column ascending/descending search semantics. Native grid menu/filtering are disabled. Component/controller tests and the real MySQL Electron test check applied versus draft markers, sorting, direct shared Git source rendering and a real table-definition commit/history. Routine/trigger draft AI behavior remains separate.
+
+MySQL vertical split parity: SQL/data/structure/statistics use the Oracle SQL pane-layout behavior; table initial heights are 250/300/200 pixels. Component tests inspect each composition and the real Electron test drags the handles, checks both pane sizes and keyboard adjustment, and returns to a tab to verify retained size. Metadata grids defer rendering while their retained tab is hidden. The coverage map now contains 144 TSX files.
+
+| Component | Tests | Coverage | Electron |
+| --- | --- | --- | --- |
+| [src/features/data-generator/DataGeneratorPanel.tsx](../src/features/data-generator/DataGeneratorPanel.tsx) | D: [mysql-generator.test.cjs](../tests/mysql-generator.test.cjs) | Oracle/MySQL shared rule controls, table-only picker, preview, AI entry and read-only guards | MySQL native picker and preview in mysql.cjs |
+| [src/features/mysql/generator/DataGeneratorTab.tsx](../src/features/mysql/generator/DataGeneratorTab.tsx) | W: [mysql-generator.test.cjs](../tests/mysql-generator.test.cjs), real data: [generator.test.cjs](../tests/mysql/generator.test.cjs) | Metadata, exact bound batches, reversible generation, AI JSON application, stale-response refusal and offline files | mysql.cjs opens the production generator and native table picker |
+
+| Component | Tests | Coverage | Electron |
+| --- | --- | --- | --- |
+| [src/features/query-builder/QueryBuilderPanel.tsx](../src/features/query-builder/QueryBuilderPanel.tsx) | D: [mysql-builder.test.cjs](../tests/mysql-builder.test.cjs), controller: [query-builder-editor.test.cjs](../tests/query-builder-editor.test.cjs) | Shared Oracle/MySQL canvas, table/view picker, toolbar, undo and disabled controls | Oracle regression flow and native MySQL builder in mysql.cjs |
+| [src/features/mysql/builder/QueryBuilderWindow.tsx](../src/features/mysql/builder/QueryBuilderWindow.tsx) | W: [mysql-builder.test.cjs](../tests/mysql-builder.test.cjs), real data: [builder.test.cjs](../tests/mysql/builder.test.cjs) | MySQL metadata, identifiers, joins, main-session results/transaction propagation, documents and AI review | Imported design, drag join, native view picker, AI preview/apply, execution and rollback |
+
+| Component | Tests | Coverage | Electron |
+| --- | --- | --- | --- |
+| [src/features/cross-tab/CrossTabPanel.tsx](../src/features/cross-tab/CrossTabPanel.tsx) | D: [mysql-cross-tab.test.cjs](../tests/mysql-cross-tab.test.cjs), Oracle: [component-workflows.test.cjs](../tests/component-workflows.test.cjs) | Shared setup/filter/result/export/chart controls, object-type differences, grid identity and busy guards | Native MySQL cross-tab setup/results/charts/JSON/filter/view workflow |
+| [src/features/mysql/bi/CrossTabWindow.tsx](../src/features/mysql/bi/CrossTabWindow.tsx) | W: [mysql-cross-tab.test.cjs](../tests/mysql-cross-tab.test.cjs), real data: [cross-tab.test.cjs](../tests/mysql/cross-tab.test.cjs) | Metadata, exact conditional aggregation, native transactions, safe settings and failure retention | Real MySQL data and Oracle-style cross-tab UI in mysql.cjs |
+
+MySQL standalone ER uses existing components (still 150 TSX files). `tests/mysql-er.test.cjs`, `tests/er-editor.test.cjs`, `tests/git-er-workflow.test.cjs` and `tests/mysql/er.test.cjs` cover its native adapter, custom editing, persistence, Git, synchronization and transaction preservation. `tests/e2e/mysql.cjs` exercises automatic generation and custom TABLE/VIEW selection, virtual relations, commit, history and restore against real MySQL and isolated Git. Oracle/PostgreSQL ER component/controller tests remain in place; the table-embedded MySQL ER implementation is unchanged.
+
+
+| Source file | Level and regression tests | Verified scenarios | Electron screen scenarios |
+| --- | --- | --- | --- |
+| [src/features/mysql/index/IndexWindow.tsx](../src/features/mysql/index/IndexWindow.tsx) | D/W: [mysql-index.test.cjs](../tests/mysql-index.test.cjs), real DB: [index.test.cjs](../tests/mysql/index.test.cjs) | Edit/statistics/source, native DDL builders, exact source, ordering/prefix/expression, review, stale refusal, no resend, dependencies and transaction feedback | Opt-in real MySQL create, statistics/source, visibility, rename, exact-name deletion and sidebar refresh in [mysql.cjs](../tests/e2e/mysql.cjs) |
+| [src/features/mysql/index/IndexSidebarCategory.tsx](../src/features/mysql/index/IndexSidebarCategory.tsx) | D: [mysql-index.test.cjs](../tests/mysql-index.test.cjs), [mysql-sidebar.test.cjs](../tests/mysql-sidebar.test.cjs) | Selection/open, table-qualified identity, cached/filterable 100-item pages, matching refresh events, context menu and read-only guards | Production MySQL index category, add/open and automatic refresh |
+
+
+| Source file | Level and regression tests | Verified scenarios | Electron screen scenarios |
+| --- | --- | --- | --- |
+| [src/features/mysql/view/ViewWindow.tsx](../src/features/mysql/view/ViewWindow.tsx) | D/W: [mysql-view.test.cjs](../tests/mysql-view.test.cjs), [mysql-ui-components.test.cjs](../tests/mysql-ui-components.test.cjs), real DB/Git: [view.test.cjs](../tests/mysql/view.test.cjs) | Oracle-style data/edit/version-control/information tabs; read-only data, filtered full export, exact native security/header, reviewed compile/drop, dependencies, stale refusal and native transaction feedback | Real MySQL pending/rollback rows, date formatting, split, mocked AI preview/adoption, explicit compile, real Git source, metadata and exact-name delete in [mysql.cjs](../tests/e2e/mysql.cjs) |
+| [src/features/mysql/view/ViewSidebarCategory.tsx](../src/features/mysql/view/ViewSidebarCategory.tsx) | D: [mysql-view.test.cjs](../tests/mysql-view.test.cjs), cache: [mysql-sidebar.test.cjs](../tests/mysql-sidebar.test.cjs), real DB: [view.test.cjs](../tests/mysql/view.test.cjs) | Independently cached VIEW tree, search/pagination/refresh, selection/open, create SQL template and guarded export/delete menus | Production category and reviewed view lifecycle |
+
+
+| Source file | Level and regression tests | Verified scenarios | Electron screen scenarios |
+| --- | --- | --- | --- |
+| [src/features/mysql/trigger/TriggerWindow.tsx](../src/features/mysql/trigger/TriggerWindow.tsx) | D/W: [mysql-trigger.test.cjs](../tests/mysql-trigger.test.cjs), real DB/Git: [trigger.test.cjs](../tests/mysql/trigger.test.cjs) | Native target/timing/event/body, edit/source/Git, review, partial failure/recovery, source recording, readonly guards | Table/sidebar entry, actual trigger firing/rollback, mock AI adoption, confirmed replace/delete and table refresh in [mysql.cjs](../tests/e2e/mysql.cjs) |
+| [src/features/mysql/trigger/TriggerSidebarCategory.tsx](../src/features/mysql/trigger/TriggerSidebarCategory.tsx) | D: [mysql-trigger.test.cjs](../tests/mysql-trigger.test.cjs), shared cache: [mysql-sidebar.test.cjs](../tests/mysql-sidebar.test.cjs) | Independent TRIGGER tree, search/pages/retry, selection/open, create/copy/delete and readonly guards | Production sidebar lifecycle and native table structure links |
+
+| [src/features/mysql/procedure/ProcedureSidebarCategory.tsx](../src/features/mysql/procedure/ProcedureSidebarCategory.tsx) | D: [mysql-procedure.test.cjs](../tests/mysql-procedure.test.cjs) | Tree expansion/search, selection, open/create, readonly | Real MySQL tree and procedure opening in [mysql.cjs](../tests/e2e/mysql.cjs) |
+| [src/features/mysql/procedure/ProcedureWindow.tsx](../src/features/mysql/procedure/ProcedureWindow.tsx) | D/W: [mysql-procedure.test.cjs](../tests/mysql-procedure.test.cjs), real DB: [procedure.test.cjs](../tests/mysql/procedure.test.cjs) | Source/Git/information, IN/OUT/INOUT, native transactions, reviewed replacement and recovery | Real CALL/results, split dragging, mock AI review/compile, actual Git history in [mysql.cjs](../tests/e2e/mysql.cjs) |
+
+| [src/features/mysql/function/FunctionSidebarCategory.tsx](../src/features/mysql/function/FunctionSidebarCategory.tsx) | D: [mysql-function.test.cjs](../tests/mysql-function.test.cjs) | Inline function tree, selection/search/pages/create and readonly guards | Real MySQL function creation/copy/delete in [mysql.cjs](../tests/e2e/mysql.cjs) |
+| [src/features/mysql/function/FunctionWindow.tsx](../src/features/mysql/function/FunctionWindow.tsx) | D/W: [mysql-function.test.cjs](../tests/mysql-function.test.cjs), real DB: [function.test.cjs](../tests/mysql/function.test.cjs) | Selects shared routine layout with FUNCTION identity; return display/format, native Git, metadata, scalar execution, reviewed replacement/recovery | Real scalar return, split, AI preview/adoption/compile, Git history and deletion in [mysql.cjs](../tests/e2e/mysql.cjs) |
+
+AUTO_INCREMENT additions also directly render the table metadata/dialog controls in [mysql-auto-increment.test.cjs](../tests/mysql-auto-increment.test.cjs) and use the real DB in [auto-increment.test.cjs](../tests/mysql/auto-increment.test.cjs). The TSX inventory remains 160 files; these settings extend existing components.
+
+| [src/features/mysql/table/ColumnEditorDialog.tsx](../src/features/mysql/table/ColumnEditorDialog.tsx) | D: [mysql-column-structure.test.cjs](../tests/mysql-column-structure.test.cjs) | Native loading, editable definition, preview invalidation, exact confirmation, readonly, stale metadata and one-attempt guard | Real MySQL column length/comment edit and native catalog verification |
+
+| [src/features/mysql/constraint/CheckConstraintWindow.tsx](../src/features/mysql/constraint/CheckConstraintWindow.tsx) | D: [mysql-check-constraint.test.cjs](../tests/mysql-check-constraint.test.cjs), real DB: [check-constraint.test.cjs](../tests/mysql/check-constraint.test.cjs) | Edit/source, read-only native expressions, name/enforcement, exact-name preview, stale/readonly/failure guards and parent routing | Real MySQL table-linked create, source/copy, enforcement, rename, reuse and delete |
+
+| [src/features/mysql/dba/UserRoleTab.tsx](../src/features/mysql/dba/UserRoleTab.tsx) | D: [mysql-user-role.test.cjs](../tests/mysql-user-role.test.cjs), real DB: [user-role.test.cjs](../tests/mysql/user-role.test.cjs), isolated mutations: [mysql-account.test.cjs](../tests/disposable/mysql-account.test.cjs) | Oracle-style account/detail split, protected/self scope, password-free reviews, exact confirmation, stale/readonly/one-use guards and resource/role operations | Normal mock/real MySQL restricted account UI; separate disposable admin flow in [mysql-accounts.cjs](../tests/e2e/mysql-accounts.cjs) |
+
+## MySQL object privileges
+
+| Source file | Level and regression tests | Verified scenarios | Electron screen scenarios |
+| --- | --- | --- | --- |
+| [src/features/mysql/dba/ObjectPrivilegeTab.tsx](../src/features/mysql/dba/ObjectPrivilegeTab.tsx) | D/W: [mysql-object-privileges.test.cjs](../tests/mysql-object-privileges.test.cjs), native: [object-privileges.test.cjs](../tests/mysql/object-privileges.test.cjs), isolated admin: [mysql-account.test.cjs](../tests/disposable/mysql-account.test.cjs) | Four-category picker; direct grants, column and GRANT OPTION protection, partial catalogs, preview/confirmation/one-use execution, stale/readonly/unknown guards and main transaction preservation | [mysql.cjs](../tests/e2e/mysql.cjs) covers entry/restricted real catalog; [mysql-accounts.cjs](../tests/e2e/mysql-accounts.cjs) covers the actual recipient filter, review and direct GRANT/REVOKE in an isolated disposable DB |
+
+## MySQL session management
+
+| Source file | Level and regression tests | Verified scenarios | Electron screen scenarios |
+| --- | --- | --- | --- |
+| [src/features/mysql/dba/SessionTab.tsx](../src/features/mysql/dba/SessionTab.tsx) | D/W: [mysql-session.test.cjs](../tests/mysql-session.test.cjs), native references: [session.test.cjs](../tests/mysql/session.test.cjs), native control: [mysql-account.test.cjs](../tests/disposable/mysql-account.test.cjs) | Oracle-style split/list/detail, filters, refresh, verified current execution, exact counters, restricted visibility, protected identities, one-use confirmation, connection-ID reuse/statement changes and unknown outcomes without replay | [mysql.cjs](../tests/e2e/mysql.cjs) covers protected own-session display; [mysql-accounts.cjs](../tests/e2e/mysql-accounts.cjs) covers current SQL/details, split, reviewed native cancel/kill of a generated worker and unchanged main transaction |
+
+## MySQL lock information
+
+| Source file | Level and regression tests | Verified scenarios | Electron screen scenarios |
+| --- | --- | --- | --- |
+| [src/features/mysql/dba/LockTab.tsx](../src/features/mysql/dba/LockTab.tsx) | D/W: [mysql-lock.test.cjs](../tests/mysql-lock.test.cjs), native references: [lock.test.cjs](../tests/mysql/lock.test.cjs), isolated control: [mysql-account.test.cjs](../tests/disposable/mysql-account.test.cjs) | Native lock modes, multiple blockers, sampling changes, explicit permission failures, SQL-bound cancel and lock/transaction-bound actions, one-use confirmation, filters/navigation, protected/unknown states | [mysql.cjs](../tests/e2e/mysql.cjs) covers entry and explicit catalog denial; [mysql-accounts.cjs](../tests/e2e/mysql-accounts.cjs) covers real contention, current SQL, blocker navigation and reviewed cancel/kill with main transaction preservation |
+
+
+## MySQL read-only tablespaces and storage
+
+| Source file | Level and regression tests | Verified scenarios | Electron screen scenarios |
+| --- | --- | --- | --- |
+| [src/features/mysql/dba/TablespaceTab.tsx](../src/features/mysql/dba/TablespaceTab.tsx) | D/W: [mysql-tablespace.test.cjs](../tests/mysql-tablespace.test.cjs), native: [tablespace.test.cjs](../tests/mysql/tablespace.test.cjs), isolated: [mysql-account.test.cjs](../tests/disposable/mysql-account.test.cjs) | Exact byte strings and numeric sorting, unavailable metadata, explicit privilege errors, stale details, StrictMode replay, read-only controls and accessible split | [mysql.cjs](../tests/e2e/mysql.cjs) covers entry/details or denied catalogs; [mysql-accounts.cjs](../tests/e2e/mysql-accounts.cjs) covers real data files and table membership |
+
+
+## MySQL database information
+
+| Source file | Level and regression tests | Verified scenarios | Electron screen scenarios |
+| --- | --- | --- | --- |
+| [src/features/mysql/dba/DatabaseTab.tsx](../src/features/mysql/dba/DatabaseTab.tsx) | D/W: [mysql-database.test.cjs](../tests/mysql-database.test.cjs), native: [database.test.cjs](../tests/mysql/database.test.cjs) | Visible metadata scope, charset/collation, exact estimates, object kinds, stale details, errors, read-only exports and split | [mysql.cjs](../tests/e2e/mysql.cjs) opens database information in production/development and real MySQL modes |
+
+
+## MySQL scalar routine and trigger trace replay
+
+| Source file | Level and regression tests | Verified scenarios | Electron screen scenarios |
+| --- | --- | --- | --- |
+| [src/features/mysql/procedure/TracePanel.tsx](../src/features/mysql/procedure/TracePanel.tsx) | D/W: [mysql-trace.test.cjs](../tests/mysql-trace.test.cjs), native: [trace.test.cjs](../tests/mysql/trace.test.cjs), unpaid AI pipeline: [trace-ai.test.cjs](../tests/mysql/trace-ai.test.cjs) | Escaped source, saved snapshots, bounded scalar recording, native loop evidence, exact numbers/NULL, unsupported-logic refusal and verified one-line repair | [mysql.cjs](../tests/e2e/mysql.cjs) covers the real function trace tab and evidence handoff in its feature mode |
+| [src/features/mysql/trigger/TriggerTracePanel.tsx](../src/features/mysql/trigger/TriggerTracePanel.tsx) | D: [mysql-trigger-trace.test.cjs](../tests/mysql-trigger-trace.test.cjs) | Metadata and saved replay, JSON OLD/NEW input, invalid input, read-only/draft guards; real DB/AI pipeline in dedicated suites | Real selected-trigger execution, replay, split and AI preview in [mysql.cjs](../tests/e2e/mysql.cjs) |
+
+
+## MySQL database changes and definition-file imports
+
+| Source file | Level and regression tests | Verified scenarios | Electron screen scenarios |
+| --- | --- | --- | --- |
+| [src/features/mysql/dba/DatabaseEditorDialog.tsx](../src/features/mysql/dba/DatabaseEditorDialog.tsx) | D: [mysql-expansion.test.cjs](../tests/mysql-expansion.test.cjs) | Editable charset/collation options, invalidated review after edits, one-use apply and readonly/busy guards; isolated database test covers actual DDL | Database options and SQL review in dedicated MySQL feature mode |
+| [src/features/mysql/DefinitionImportDialog.tsx](../src/features/mysql/DefinitionImportDialog.tsx) | D: [mysql-expansion.test.cjs](../tests/mysql-expansion.test.cjs), native: [definition-import.test.cjs](../tests/mysql/definition-import.test.cjs) | File loading, preview, explicit apply, partial failure, original-definition recovery and optional Git | Real mixed definition-file import and native calls in dedicated MySQL feature mode |
+
+
+## MySQL typed bindings, dependency information and isolated SQL trace inputs
+
+| Source file | Level and regression tests | Verified scenarios | Electron screen scenarios |
+| --- | --- | --- | --- |
+| [src/features/mysql/SqlBindPanel.tsx](../src/features/mysql/SqlBindPanel.tsx) | D: [mysql-next-parity.test.cjs](../tests/mysql-next-parity.test.cjs), native: [binds-dependencies.test.cjs](../tests/mysql/binds-dependencies.test.cjs) | Detected names, independent type/value/NULL state, exact decimal SQL types, dates and editing guards | Typed SQL bind fields in dedicated MySQL feature mode |
+| [src/features/mysql/procedure/RoutineDependencyPanel.tsx](../src/features/mysql/procedure/RoutineDependencyPanel.tsx) | D: [mysql-next-parity.test.cjs](../tests/mysql-next-parity.test.cjs), native: [binds-dependencies.test.cjs](../tests/mysql/binds-dependencies.test.cjs) | Saved-identity fetch, catalog-confirmed versus source candidates, partial scope and exact related-object navigation | Actual routine information and related table navigation in MySQL feature mode |
+| [src/features/mysql/TraceFixtureEditor.tsx](../src/features/mysql/TraceFixtureEditor.tsx) | D: [mysql-next-parity.test.cjs](../tests/mysql-next-parity.test.cjs), native: [trace-sql.test.cjs](../tests/mysql/trace-sql.test.cjs) | Metadata-only loading, explicit synthetic rows, fingerprint readiness, refresh; no implicit row copy | Recorded cursor/handler execution using user-entered fixture JSON in MySQL feature mode |
+
+
+## MySQL editor diagnostics, completion and nested replay
+
+The existing SQL, procedure/function and trigger component rows also use
+[mysql-editor-nested.test.cjs](../tests/mysql-editor-nested.test.cjs) for actual
+editor-extension completion/lint and [mysql-sql-workspace.test.cjs](../tests/mysql-sql-workspace.test.cjs)
+for selected/private error locations. [The native nested suite](../tests/mysql/editor-nested.test.cjs)
+compares real execution and recording, including triggers. [The Electron feature scenario](../tests/e2e/mysql.cjs)
+checks actual error-line clicks, stale highlights, completion and inner-block
+replay. The component count remains 175; new files are hooks/helpers/tests.

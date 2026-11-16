@@ -1,7 +1,7 @@
 // Copyright 2026 eiji ikemura
 // SPDX-License-Identifier: Apache-2.0
 
-export type SqlDialect = 'oracle' | 'postgresql';
+export type SqlDialect = 'oracle' | 'postgresql' | 'mysql';
 interface Token { text: string; start: number; end: number; kind: 'word' | 'symbol' | 'quoted'; }
 export interface SqlStatement { text: string; lineOffset: number; }
 
@@ -12,14 +12,16 @@ function scan(source: string, dialect: SqlDialect): Token[] {
   while (index < source.length) {
     const start = index;
     if (/\s/.test(source[index])) { index++; continue; }
-    if (source.startsWith('--', index)) { const end = source.indexOf('\n', index); index = end < 0 ? source.length : end + 1; continue; }
+    if ((source.startsWith('--', index) && (dialect !== 'mysql' || !source[index + 2] || /\s/.test(source[index + 2]))) || (dialect === 'mysql' && source[index] === '#')) { const end = source.indexOf('\n', index); index = end < 0 ? source.length : end + 1; continue; }
     if (source.startsWith('/*', index)) {
+      if (dialect === 'mysql' && /^\/\*(?:!|M!)/i.test(source.slice(index))) throw new Error('Executable SQL comments are not supported.');
       let depth = 1; index += 2;
       while (index < source.length && depth) {
         if (source.startsWith('/*', index) && dialect === 'postgresql') { depth++; index += 2; }
         else if (source.startsWith('*/', index)) { depth--; index += 2; }
         else index++;
       }
+      if (dialect === 'mysql' && depth) throw new Error('Unclosed SQL comment.');
       continue;
     }
     let kind: Token['kind'] = 'symbol';
@@ -33,20 +35,22 @@ function scan(source: string, dialect: SqlDialect): Token[] {
       const closing: Record<string, string> = { '[': ']', '{': '}', '(': ')', '<': '>' };
       const end = source.indexOf((closing[opening] ?? opening) + "'", index + oracleQuote.length);
       index = end < 0 ? source.length : end + 2;
-    } else if (source[index] === "'" || source[index] === '"') {
+    } else if (source[index] === "'" || source[index] === '"' || (dialect === 'mysql' && source[index] === '`')) {
       kind = 'quoted'; const quote = source[index++];
-      const escaped = dialect === 'postgresql' && quote === "'" && /[eE]/.test(source[start - 1] ?? '') && (start < 2 || !/[\w$]/.test(source[start - 2]));
+      const escaped = dialect === 'mysql' && quote !== '`' || dialect === 'postgresql' && quote === "'" && /[eE]/.test(source[start - 1] ?? '') && (start < 2 || !/[\w$]/.test(source[start - 2]));
+      let closed = false;
       while (index < source.length) {
         if (escaped && source[index] === '\\') { index += 2; continue; }
         if (source[index] === quote) {
           if (source[index + 1] === quote) { index += 2; continue; }
-          index++; break;
+          index++; closed = true; break;
         }
         index++;
       }
+      if (dialect === 'mysql' && !closed) throw new Error('Unclosed SQL quote.');
     } else if (/[\p{L}\p{N}_$#]/u.test(source[index])) {
       kind = 'word'; index++;
-      while (index < source.length && /[\p{L}\p{N}_$#]/u.test(source[index])) index++;
+      while (index < source.length && /[\p{L}\p{N}_$#]/u.test(source[index]) && (dialect !== 'mysql' || source[index] !== '#')) index++;
     } else index++;
     tokens.push({ text: source.slice(start, index), start, end: index, kind });
   }

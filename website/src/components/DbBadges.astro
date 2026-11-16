@@ -4,7 +4,8 @@
 import type { Database } from '../content/site';
 interface Props { databases: Database[]; label: string; }
 const { databases, label } = Astro.props;
+const names: Record<Database,string> = {oracle:'Oracle',postgresql:'PostgreSQL',mysql:'MySQL'};
 ---
 <div class="db-badges" role="group" aria-label={label}>
-  {databases.map(database => <span class:list={['db-badge', database]}><span aria-hidden="true" class="db-dot"></span>{database === 'oracle' ? 'Oracle' : 'PostgreSQL'}</span>)}
+  {databases.map(database => <span class:list={['db-badge', database]}><span aria-hidden="true" class="db-dot"></span>{names[database]}</span>)}
 </div>

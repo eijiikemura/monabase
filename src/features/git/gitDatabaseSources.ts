@@ -10,7 +10,8 @@ import type { TFunction } from 'i18next';
 
 export type GitDatabaseObject = Omit<DatabaseObject, 'category'> & { category: ObjectCategory | 'PACKAGE BODY' };
 
-export const gitSourceCategories = (db: DbType): string[] => db === 'oracle'
+export const gitSourceCategories = (db: DbType): string[] => db === 'mysql'
+  ? ['FUNCTION', 'PROCEDURE', 'TRIGGER', 'TABLE', 'VIEW'] : db === 'oracle'
   ? ['FUNCTION', 'PROCEDURE', 'PACKAGE', 'PACKAGE BODY', 'TRIGGER', 'TABLE', 'VIEW', 'SEQUENCE', 'INDEX', 'TYPE', 'SYNONYM', 'MATERIALIZED VIEW']
   : ['FUNCTION', 'PROCEDURE', 'TRIGGER', 'TABLE', 'VIEW', 'SEQUENCE', 'INDEX', 'TYPE', 'MATERIALIZED VIEW'];
 

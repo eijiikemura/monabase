@@ -8,8 +8,8 @@ const { loadTypeScript } = require('./helpers/loadTypeScript.cjs');
 
 test('ER table node keeps physical identifiers separate from logical names and optional types', () => {
   const data = { tableName: 'ORDERS', tableComment: 'Orders label', showComments: true, logicalMode: false, showDataType: true, columns: [{ name: 'ID', comment: 'Identifier', type: 'NUMBER', isPk: true, isFk: true }] };
-  const f = render('src/features/er/ErDiagramWindow.tsx', { data }, { name: 'TableNode', dependencies: {
-    reactflow: { Handle: 'Handle', Position: { Left: 'left', Right: 'right' } }, './useErDiagramWindow': {}, './useCustomErDiagram': {}, './AutoErDiagram': 'Auto', './CustomErDiagram': 'Custom'
+  const f = render('src/features/er/TableNode.tsx', { data }, { name: 'TableNode', dependencies: {
+    reactflow: { Handle: 'Handle', Position: { Left: 'left', Right: 'right' } }
   } });
   assert.ok(f.text().includes('ORDERS')); assert.ok(f.text().includes('Orders label')); assert.ok(f.text().includes('NUMBER'));
   data.logicalMode = true; data.showDataType = false; f.render(); assert.ok(!f.text().includes('ORDERS')); assert.ok(f.text().includes('Orders label')); assert.ok(!f.text().includes('NUMBER'));
@@ -20,7 +20,7 @@ test('ER table node keeps physical identifiers separate from logical names and o
 test('Automatic ER view protects loading/empty exports and embeds an existing controller without another load', async () => {
   let generated = 0, exported = 0;
   const logic = { t: key => key, isLoading: true, schema: 'test', schemaList: ['test'], objects: [], selectedObject: '', showComments: false, logicalMode: false, showDataType: true, nodes: [], edges: [], handleGenerateAutoEr: () => { generated++; }, handleExportImage: () => { exported++; } };
-  const f = render('src/features/er/AutoErDiagram.tsx', { logic }, { dependencies: { './useErDiagramWindow': { useErDiagramWindow() { throw new Error('Existing controller must be reused'); } }, './ErDiagramWindow': { TableNode: 'TableNode' }, reactflow: { default: 'Flow', __esModule: true, Background: 'Background', Controls: 'Controls' }, 'reactflow/dist/style.css': {} } });
+  const f = render('src/features/er/AutoErDiagram.tsx', { logic }, { dependencies: { './useErDiagramWindow': { useErDiagramWindow() { throw new Error('Existing controller must be reused'); } }, './TableNode': { TableNode: 'TableNode' }, reactflow: { default: 'Flow', __esModule: true, Background: 'Background', Controls: 'Controls' }, 'reactflow/dist/style.css': {} } });
   // The wrapper chooses its view; run that real view with the same hook renderer.
   const view = f.tree.type, props = f.tree.props;
   const draw = () => f.hooks.render(() => view(props));

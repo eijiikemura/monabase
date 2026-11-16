@@ -1,6 +1,7 @@
 // Copyright 2026 eiji ikemura
 // SPDX-License-Identifier: Apache-2.0
 
+import { GridViewport } from '@/features/data-grid/GridViewport';
 import DiffLayoutControls, { useDiffLayout } from '@/components/data/DiffLayoutControls';
 import GitHistoryPagination from '@/features/git/GitHistoryPagination';
 import GitWorkspaceDialog from './GitWorkspaceDialog';
@@ -565,7 +566,7 @@ export default function VersionControlTab(props: VersionControlTabProps) {
                   <Typography variant="body2" color="text.disabled">{t("no_past_history")}</Typography>
                 </Box>
               ) : (
-                <DataGrid 
+                <GridViewport active={props.isActive !== false}><DataGrid
                   rows={logic.historyList} 
                   columns={historyColumns} 
                   density="compact"
@@ -573,7 +574,7 @@ export default function VersionControlTab(props: VersionControlTabProps) {
                   disableColumnMenu
                   onRowClick={logic.handleHistoryRowClick}
                   sx={{ border: 0, '& .MuiDataGrid-row': { cursor: 'pointer' } }} 
-                />
+                /></GridViewport>
               )}
             </Box>
           </Paper>
@@ -632,7 +633,7 @@ export default function VersionControlTab(props: VersionControlTabProps) {
           </Button>
         </DialogActions>
       </Dialog>
-      {workspaceOpen && <GitWorkspaceDialog key={`${props.dbType}:${props.schema}`} dbType={props.dbType?.toUpperCase().startsWith('POSTGRES') ? 'postgresql' : 'oracle'} schema={props.schema} onClose={() => setWorkspaceOpen(false)} />}
+      {workspaceOpen && <GitWorkspaceDialog key={`${props.dbType}:${props.schema}`} dbType={props.dbType?.toUpperCase() === 'MYSQL' ? 'mysql' : props.dbType?.toUpperCase().startsWith('POSTGRES') ? 'postgresql' : 'oracle'} schema={props.schema} onClose={() => setWorkspaceOpen(false)} />}
       {compareOpen && <GitRevisionCompareDialog object={{ dbType: props.dbType || 'ORACLE', schema: props.schema, objectType: props.objectType, objectName: props.objectName, signature: props.signature, tableName: props.tableName }} onClose={() => setCompareOpen(false)} />}
     </Paper>
   );

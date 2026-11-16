@@ -6,7 +6,7 @@ import { Button, Tooltip } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import ObjectPickerDialog from '@/features/objects/ObjectPickerDialog';
 export function TriggerTargetPicker({ database, schema, table, type, disabled, onChange }: {
-  database: 'oracle' | 'postgresql'; schema: string; table: string; type: 'TABLE' | 'VIEW'; disabled: boolean;
+  database: 'oracle' | 'postgresql' | 'mysql'; schema: string; table: string; type: 'TABLE' | 'VIEW'; disabled: boolean;
   onChange: (name: string) => void;
 }) {
   const { t } = useTranslation();

@@ -14,30 +14,9 @@ import type { Condition } from '@/shared/types/queryConditions';
 import { getOracleDateFormat, getOracleFormatForValue, DEFAULT_DATETIME_FORMAT, DEFAULT_COMPACT_DATE_FORMAT } from "@/shared/utils/dateFormatter"; 
 import { ipcRenderer } from '@/shared/api/desktop';
 
-export interface CrossTabWindowProps {
-  tabId: number;
-  isActive: boolean;
-  schemas: string[];
-  initialSchema: string;
-  inputDateFormat: string;
-}
-
-export interface LogEntry { 
-  time: string; 
-  sql: string; 
-  execTime: string | number; 
-  resultMsg: string; 
-  errorLines?: string[]; 
-}
-
-export interface ColumnInfo {
-  name: string;
-  type: string;
-}
-
-export type CastType = 'STRING' | 'NUMBER' | 'DATE' | 'NONE';
-
-export const GRAPH_COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#a4de6c', '#d0ed57'];
+import type { CrossTabWindowProps, LogEntry, ColumnInfo, CastType } from '@/features/cross-tab/crossTabTypes';
+export { GRAPH_COLORS } from '@/features/cross-tab/crossTabTypes';
+export type { CrossTabWindowProps, LogEntry, ColumnInfo, CastType } from '@/features/cross-tab/crossTabTypes';
 
 export function useCrossTabWindow({ initialSchema, inputDateFormat = DEFAULT_DATETIME_FORMAT }: CrossTabWindowProps) {
   const { t } = useTranslation(); 

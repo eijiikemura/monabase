@@ -16,7 +16,7 @@ export interface ErForeignKey {
 }
 
 export interface ErMetadata {
-  columns: (ColumnDefinition & { TABLE_NAME: string; TABLE_SCHEMA?: string })[];
+  columns: (ColumnDefinition & { TABLE_NAME: string; TABLE_SCHEMA?: string; MYSQL_COLUMN_TYPE?: string })[];
   primaryKeys: { TABLE_NAME: string; COLUMN_NAME: string; TABLE_SCHEMA?: string }[];
   foreignKeys: ErForeignKey[];
   tableComments: { TABLE_NAME: string; TABLE_SCHEMA?: string; COMMENTS: string | null }[];
@@ -33,8 +33,12 @@ export function selectErSchema(schemas: string[], preferred: string | null | und
 
 // Fetch columns, constraints, and comments only for displayed tables.
 export async function fetchErMetadata(
-  isPg: boolean, schema: string, targetTableName: string | null, isCustomMode: boolean
+  isPg: boolean | 'mysql', schema: string, targetTableName: string | null, isCustomMode: boolean
 ): Promise<ErMetadata> {
+  if (isPg === 'mysql') {
+    const { fetchMysqlErMetadata } = await import('@/features/mysql/er/erMetadata');
+    return fetchMysqlErMetadata(schema, targetTableName, isCustomMode);
+  }
   const safeSchema = schema.replace(/'/g, "''");
   let sqlCols, sqlPk, sqlFk, sqlTabComments, sqlColComments;
   if (isPg) {

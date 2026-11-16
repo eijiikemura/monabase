@@ -48,27 +48,26 @@ export default function ConditionPanel({
 
   return (
     <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <Box sx={{ p: 1, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: 'background.default' }}>
-        <Typography variant="subtitle2" fontWeight="bold">
+      <Box sx={{ p: 1, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', flexShrink: 0, bgcolor: 'background.default' }}>
+        <Typography variant="subtitle2" fontWeight="bold" sx={{ whiteSpace: 'nowrap' }}>
           {hideSort ? t("filter_condition") : t("filter_sort")}
         </Typography>
-        <Button 
-          variant="contained" 
-          color="primary" 
-          size="small" 
-          startIcon={<PlayArrowIcon />} 
+        <TextField size="small" label={t('condition_search_columns')} value={columnSearch} disabled={disabled}
+          onChange={event => setColumnSearch(event.target.value)} sx={{ minWidth: 160, maxWidth: 320, flex: 1 }} />
+        <FormControlLabel sx={{ m: 0, whiteSpace: 'nowrap' }} label={t('condition_active_only')} control={<Checkbox size="small" checked={onlyActive}
+          disabled={disabled} onChange={event => setOnlyActive(event.target.checked)} />} />
+        <Button size="small" disabled={disabled || !hasDraft} onClick={onClearConditions} sx={{ whiteSpace: 'nowrap' }}>{t('condition_clear_all')}</Button>
+        <Button
+          variant="contained"
+          color="primary"
+          size="small"
+          startIcon={<PlayArrowIcon />}
           onClick={onExecute}
           disabled={disabled}
+          sx={{ ml: 'auto', whiteSpace: 'nowrap' }}
         >
           {t("execute")}
         </Button>
-      </Box>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, p: 1 }}>
-        <TextField size="small" label={t('condition_search_columns')} value={columnSearch} disabled={disabled}
-          onChange={event => setColumnSearch(event.target.value)} sx={{ minWidth: 160, flex: 1 }} />
-        <FormControlLabel label={t('condition_active_only')} control={<Checkbox size="small" checked={onlyActive}
-          disabled={disabled} onChange={event => setOnlyActive(event.target.checked)} />} />
-        <Button size="small" disabled={disabled || !hasDraft} onClick={onClearConditions}>{t('condition_clear_all')}</Button>
       </Box>
       {hiddenActive > 0 && <Typography role="status" aria-live="polite" variant="caption" sx={{ px: 1 }}>
         {t('condition_hidden_active', { count: hiddenActive, total: hiddenActive })}

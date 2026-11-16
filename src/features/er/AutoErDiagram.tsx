@@ -14,7 +14,7 @@ import ReactFlow, { Background, Controls } from 'reactflow';
 import 'reactflow/dist/style.css'; 
 
 import { useErDiagramWindow } from './useErDiagramWindow';
-import { TableNode } from './ErDiagramWindow';
+import { TableNode } from './TableNode';
 
 const styles = {
   contentBox: { position: 'relative' as const, border: 0, m: 0, p: 0, minWidth: 0, display: 'flex', flexDirection: 'column' as const, flexGrow: 1, overflow: 'hidden' },

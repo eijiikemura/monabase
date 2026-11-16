@@ -117,7 +117,10 @@ test('Workspace divider clamps normal/reversed keyboard movement and preserves u
 
 test('Transaction controls show pending work and invoke only the selected explicit action', async () => {
   const actions = []; const f = render('src/components/TopMenuBar.tsx', { hasUncommittedTx: false, onCommit: () => actions.push('commit'), onRollback: () => actions.push('rollback') });
-  assert.equal(f.node('Chip'), undefined); f.props.hasUncommittedTx = true; f.render(); assert.equal(f.node('Chip').props.role, 'status');
+  assert.equal(f.button('commit').props['aria-description'], undefined);
+  f.props.hasUncommittedTx = true; f.render();
+  for (const action of ['commit', 'rollback']) assert.equal(f.button(action).props['aria-description'], 'ux_pending_transaction');
+  assert.equal(f.node('Chip'), undefined);
   await f.click('commit'); await f.click('rollback'); assert.deepEqual(actions, ['commit', 'rollback']); f.unmount();
 });
 

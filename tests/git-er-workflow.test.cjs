@@ -19,7 +19,7 @@ async function fixture(t, createClient) {
 const target = (objectName = 'plan[1]') => ({ dbType: 'POSTGRESQL', objectName, sourceText: '{"nodes":[]}', message: 'ER図を保存 | 詳細 2語' });
 const relative = object => `MonaBase/${object.dbType}/ErDiagram/${object.objectName}.json`;
 
-for (const dbType of ['ORACLE', 'POSTGRESQL']) {
+for (const dbType of ['ORACLE', 'POSTGRESQL', 'MYSQL']) {
   test(`${dbType}: ER commits preserve unrelated staged work, exact messages and no-op retries`, async t => {
     const h = await fixture(t), object = { ...target(), dbType };
     fs.writeFileSync(path.join(h.repo, 'unrelated.sql'), 'Preserve staged work');

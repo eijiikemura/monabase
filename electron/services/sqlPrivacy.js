@@ -68,6 +68,9 @@ function inspectDialect(source, dialect, budget, depth = 0, inheritedBlock = fal
   if (depth > MAX_INSPECTION_DEPTH || source.length > budget.remaining) return privateDynamic();
   budget.remaining -= source.length;
   const tokens = scanSql(source, dialect);
+  if (dialect === 'mysql' && tokens.some((token, index) => token.kind === 'word' && (
+    /^(PREPARE|EXECUTE|DELIMITER)$/i.test(token.text) && (index === 0 || tokens[index - 1].text === ';') ||
+    /^SET$/i.test(token.text) && /^PASSWORD$/i.test(tokens[index + 1]?.text)))) return privateDynamic();
   const direct = inspectTokens(tokens, dialect, budget);
   if (direct.sensitive) return direct;
   const word = index => tokens[index]?.kind === 'word' ? tokens[index].text.toUpperCase() : '';
@@ -121,9 +124,9 @@ function inspectDialect(source, dialect, budget, depth = 0, inheritedBlock = fal
 }
 
 function inspectSqlPrivacy(source, dialect) {
-  if (typeof source !== 'string' || dialect !== undefined && !['oracle', 'postgresql'].includes(dialect)) throw new Error('Invalid SQL privacy request.');
+  if (typeof source !== 'string' || dialect !== undefined && !['oracle', 'postgresql', 'mysql'].includes(dialect)) throw new Error('Invalid SQL privacy request.');
   // History entries have no dialect. Inspect both without guessing their source database.
-  for (const candidate of dialect ? [dialect] : ['oracle', 'postgresql']) {
+  for (const candidate of dialect ? [dialect] : ['oracle', 'postgresql', 'mysql']) {
     const result = inspectDialect(source, candidate, { remaining: MAX_INSPECTION_CHARS, steps: MAX_INSPECTION_CHARS });
     if (result.sensitive) return result;
   }

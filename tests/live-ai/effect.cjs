@@ -60,7 +60,7 @@ function validateProposal(answer, spec) {
 }
 
 function createPaidSession(apiKey, fetchImpl = globalThis.fetch, { requestType = 'sql_tuning', maxRequests = 4, model = 'gpt-4o-mini' } = {}) {
-  assert.ok(['sql_tuning', 'debug_function', 'coding_trigger', 'coding_procedure', 'coding_function', 'coding_package'].includes(requestType));
+  assert.ok(['sql_tuning', 'debug_function', 'debug_procedure', 'debug_trigger', 'coding_trigger', 'coding_procedure', 'coding_function', 'coding_package'].includes(requestType));
   assert.ok(Number.isInteger(maxRequests) && maxRequests >= 1 && maxRequests <= 4);
   assert.ok(['gpt-4o-mini','gpt-4.1-mini','gpt-6-luna'].includes(model));
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'monabase-ai-effect-'));

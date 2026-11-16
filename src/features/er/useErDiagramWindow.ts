@@ -52,7 +52,12 @@ export const injectGlobalMarkers = () => {
 };
 
 // Fetch schemas in the background for the selected database type.
-export const fetchErSchemas = async (isPg: boolean): Promise<string[]> => {
+export const fetchErSchemas = async (isPg: boolean | 'mysql'): Promise<string[]> => {
+  if (isPg === 'mysql') {
+    const response = await ipcRenderer.invoke('get-schemas');
+    if (!response.success) throw new Error(response.error);
+    return response.schemas;
+  }
   const query = isPg
     ? `SELECT schema_name AS "USERNAME" FROM information_schema.schemata WHERE schema_name NOT IN ('information_schema', 'pg_catalog', 'pg_toast') ORDER BY schema_name`
     : "SELECT USERNAME FROM ALL_USERS WHERE ORACLE_MAINTAINED = 'N' ORDER BY USERNAME";
@@ -65,7 +70,7 @@ export const fetchErSchemas = async (isPg: boolean): Promise<string[]> => {
 };
 
 export const fetchErDiagramData = async (
-  isPg: boolean,
+  isPg: boolean | 'mysql',
   schema: string,
   targetTableName: string | null,
   showComments: boolean,
@@ -217,7 +222,7 @@ export const fetchErDiagramData = async (
         const isFk = fkKeys.has(columnKey(tName, c.COLUMN_NAME));
         const columnComment = columnComments.get(columnKey(tName, c.COLUMN_NAME));
         const len = c.DATA_PRECISION != null ? c.DATA_PRECISION : c.DATA_LENGTH;
-        const formattedType = formatDataTypeString(c.DATA_TYPE, len, c.DATA_SCALE);
+        const formattedType = isPg === 'mysql' ? (c as ColumnDefinition & { MYSQL_COLUMN_TYPE?: string }).MYSQL_COLUMN_TYPE || c.DATA_TYPE : formatDataTypeString(c.DATA_TYPE, len, c.DATA_SCALE);
         return { name: c.COLUMN_NAME, type: formattedType, isPk, isFk, comment: columnComment || '' };
       });
 
@@ -260,7 +265,7 @@ export const fetchErDiagramData = async (
 
   if (import.meta.env.DEV) {
     console.debug('[ER diagram] Processing time', {
-      DB: isPg ? 'PostgreSQL' : 'Oracle',
+      DB: isPg === 'mysql' ? 'MySQL' : isPg ? 'PostgreSQL' : 'Oracle',
       dataRetrievalMs: dataLoadedAt - startedAt,
       diagramAssemblyMs: Date.now() - dataLoadedAt,
       tableCount: nodes.length,
@@ -279,11 +284,14 @@ export interface ErDiagramWindowProps {
   dbName?: string;
   userName?: string;
   tableName?: string;
+  disabled?: boolean;
 }
 
 export function useErDiagramWindow({ isActive = true, schemas, initialSchema, dbType = 'oracle', dbName = '', userName = '', tableName }: ErDiagramWindowProps) {
   const { t } = useTranslation();
   const isPg = dbType.toLowerCase().startsWith('postgres');
+  const isMysql = dbType.toLowerCase() === 'mysql';
+  const database = isMysql ? 'mysql' : isPg;
   const isEmbedded = !!tableName;
 
   useEffect(() => { injectGlobalMarkers(); }, []);
@@ -309,7 +317,7 @@ export function useErDiagramWindow({ isActive = true, schemas, initialSchema, db
     if (!targetSchema) return;
     beginLoading();
     try {
-      const query = isPg
+      const query = isMysql ? `SELECT TABLE_NAME AS OBJECT_NAME FROM information_schema.TABLES WHERE CAST(TABLE_SCHEMA AS BINARY)=CAST(:owner AS BINARY) AND TABLE_TYPE='BASE TABLE' ORDER BY TABLE_NAME` : isPg
         ? `SELECT table_name AS "OBJECT_NAME" FROM information_schema.tables WHERE table_schema = :owner AND table_type = 'BASE TABLE' ORDER BY table_name`
         : "SELECT OBJECT_NAME FROM ALL_OBJECTS WHERE OWNER = :owner AND OBJECT_TYPE = 'TABLE' ORDER BY OBJECT_NAME";
       const res = await ipcRenderer.invoke<{ OBJECT_NAME: string }>('execute-sql-bg', query, { owner: targetSchema });
@@ -321,7 +329,7 @@ export function useErDiagramWindow({ isActive = true, schemas, initialSchema, db
         throw new Error(res.error);
       }
     } catch (error: unknown) { alert(t('failed_to_retrieve_information_2') + getErrorMessage(error)); } finally { endLoading(); }
-  }, [isPg, beginLoading, endLoading, t]);
+  }, [isPg, isMysql, beginLoading, endLoading, t]);
 
   const handleChangeSchema = useCallback((e: SelectChangeEvent<string>) => {
     if (isBusy()) return;
@@ -359,12 +367,12 @@ export function useErDiagramWindow({ isActive = true, schemas, initialSchema, db
     if (!targetSchema) { if (!isEmbedded) alert(t("please_select_a_schema_2")); return; }
     beginLoading();
     try {
-      const data = await fetchErDiagramData(isPg, targetSchema, targetTable || null, showComments, showDataType, logicalMode);
+      const data = await fetchErDiagramData(database, targetSchema, targetTable || null, showComments, showDataType, logicalMode);
       setNodes(data.nodes); setEdges(data.edges);
     } catch (e: unknown) { alert(t("an_error_occurred_2", { error: getErrorMessage(e) })); } finally { endLoading(); }
   }, [
     isEmbedded, initialSchema, schema, tableName, selectedObject,
-    isPg, showComments, showDataType, logicalMode,
+    database, showComments, showDataType, logicalMode,
     beginLoading, endLoading, t
   ]);
 
@@ -439,7 +447,7 @@ export function useErDiagramWindow({ isActive = true, schemas, initialSchema, db
           await generateAutoEr();
           return;
         }
-        const fetchedSchemas = await fetchErSchemas(isPg).catch((error: unknown) => {
+        const fetchedSchemas = await fetchErSchemas(database).catch((error: unknown) => {
           alert(t("failed_to_retrieve_information_2") + getErrorMessage(error));
           return schemas || [];
         });
@@ -456,7 +464,7 @@ export function useErDiagramWindow({ isActive = true, schemas, initialSchema, db
       }
     };
     void initData();
-  }, [isActive, initialSchema, schemas, isPg, dbName, userName, isEmbedded, beginLoading, endLoading, t, fetchObjects, generateAutoEr]);
+  }, [isActive, initialSchema, schemas, isPg, database, dbName, userName, isEmbedded, beginLoading, endLoading, t, fetchObjects, generateAutoEr]);
 
   return {
     t, isLoading, schemaList, schema, objects, selectedObject,

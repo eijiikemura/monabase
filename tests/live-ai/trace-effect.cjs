@@ -87,9 +87,9 @@ async function buildTracePrompt(client, spec, directory, TraceDatabase) {
     '@/shared/api/desktop': { ipcRenderer: { invoke: (key, params) => { assert.equal(key, 'get-trace-for-ai'); return handlers.get(key)(null, params); } } }
   }, { crypto: { randomUUID }, alert: message => alerts.push(message), window: { confirm: () => { throw new Error('Synthetic trace should not require a capacity override.'); } } });
   try {
-    const hook = harness.render(() => useAiTraceDebug({ dbType: spec.db, schema: spec.schema, objectName: spec.name, objectType: 'FUNCTION', sourceText: spec.source, isAiEnabled: true, onOpenAiSidebar: context => contexts.push(context) }));
+    const hook = harness.render(() => useAiTraceDebug({ dbType: spec.db, schema: spec.schema, objectName: spec.name, objectType: spec.kind || 'FUNCTION', sourceText: spec.source, isAiEnabled: true, onOpenAiSidebar: context => contexts.push(context) }));
     harness.commit(); await hook.requestDebug();
-    assert.deepEqual(alerts, []); assert.equal(contexts.length, 1); assert.equal(contexts[0].requestType, 'debug_function');
+    assert.deepEqual(alerts, []); assert.equal(contexts.length, 1); assert.equal(contexts[0].requestType, (spec.kind||'FUNCTION')==='TRIGGER'?'debug_trigger':(spec.kind||'FUNCTION')==='PROCEDURE'?'debug_procedure':'debug_function');
     assert.ok(contexts[0].referencePrompt.includes(JSON.stringify(spec.source)));
     return contexts[0].referencePrompt;
   } finally { harness.unmount(); }
@@ -189,5 +189,9 @@ async function main() {
   } catch (error) { throw new Error(safeAiError(error.code === 'ERR_ASSERTION' ? error.message : (error.code || error.message), apiKey)); }
   finally { paid.dispose(); apiKey = ''; }
 }
-if (require.main === module) main().catch(error => { console.error(safeAiError(error.message)); process.exitCode = 1; });
 module.exports = { createProgram, iterationAt, traceEvidence, validateDiagnosis, buildTracePrompt, runTraceEffects };
+if (require.main === module) {
+  if(process.argv.includes('--mysql-trigger')){process.argv=process.argv.filter(arg=>arg!=='--mysql-trigger');require('./mysql-trigger-trace-effect.cjs').main().catch(error=>{console.error(safeAiError(error.message));process.exitCode=1;});}
+  else if(process.argv.includes('--mysql')){process.argv=process.argv.filter(arg=>arg!=='--mysql');require('./mysql-trace-effect.cjs').main().catch(error=>{console.error(safeAiError(error.message));process.exitCode=1;});}
+  else main().catch(error => { console.error(safeAiError(error.message)); process.exitCode = 1; });
+}

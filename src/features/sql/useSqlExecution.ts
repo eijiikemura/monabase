@@ -27,7 +27,7 @@ interface StatementOutcome {
   summary?: SqlResultSummary;
 }
 interface Options {
-  dialect: SqlDialect;
+  dialect: Exclude<SqlDialect, 'mysql'>;
   sqlText: string;
   editorRef: React.RefObject<ReactCodeMirrorRef>;
   bindValues: Record<string, string>;

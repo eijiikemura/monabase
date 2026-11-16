@@ -17,7 +17,7 @@ export default function ConnectionBadge({ config, dbInfo, disconnected }: {
     const { t } = useTranslation();
     const theme = useTheme();
     const dark = theme.palette.mode === 'dark';
-    const database = config.dbType === 'oracle' ? 'Oracle' : 'PostgreSQL';
+    const database = config.dbType === 'oracle' ? 'Oracle' : config.dbType === 'mysql' ? 'MySQL' : 'PostgreSQL';
     const identity = `${database} (${config.database || t('unspecified_2')}) - ${config.user}`;
     const label = config.environmentLabel?.trim();
     const baseColor = disconnected ? theme.palette.error.main : environmentColor(config.environmentColor);
@@ -51,9 +51,9 @@ export default function ConnectionBadge({ config, dbInfo, disconnected }: {
                         {label ? `${label} · ${database}` : database}
                     </Typography>
                 </Box>
-                {config.dbType === 'postgresql' && !disconnected && (
-                    <Chip size="small" variant="outlined" color={config.pgSslMode === 'verify-full' ? 'success' : 'warning'}
-                        label={t(config.pgSslMode === 'verify-full' ? 'security_tls_verified' : 'security_tls_disabled')}
+                {['postgresql', 'mysql'].includes(config.dbType) && !disconnected && (
+                    <Chip size="small" variant="outlined" color={(config.dbType === 'mysql' ? config.mysqlSslMode : config.pgSslMode) === 'verify-full' ? 'success' : 'warning'}
+                        label={t((config.dbType === 'mysql' ? config.mysqlSslMode : config.pgSslMode) === 'verify-full' ? 'security_tls_verified' : 'security_tls_disabled')}
                         sx={{ height: 20, flexShrink: 0, fontSize: '0.625rem', '& .MuiChip-label': { px: 0.75 } }} />
                 )}
             </Box>

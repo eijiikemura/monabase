@@ -16,6 +16,8 @@ export interface ConnectionConfig {
   readonly?: boolean;
   useOsAuth?: boolean;
   useSysdba?: boolean;
+  mysqlSslMode?: 'disable' | 'verify-full';
+  mysqlSslCaFile?: string;
   pgSslMode?: 'disable' | 'verify-full';
   pgSslCaFile?: string;
   pgSslServerName?: string;

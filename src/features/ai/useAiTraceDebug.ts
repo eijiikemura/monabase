@@ -10,7 +10,7 @@ import type { AiSourceIdentity } from '@/shared/types/aiTypes';
 import { ipcRenderer } from "@/shared/api/desktop";
 
 interface TraceDebugOptions extends StoredAiProps {
-  dbType: 'oracle' | 'postgresql';
+  dbType: 'oracle' | 'postgresql' | 'mysql';
   schema: string;
   objectName: string;
   objectType: 'PROCEDURE' | 'FUNCTION' | 'PACKAGE BODY' | 'TRIGGER';
@@ -96,7 +96,7 @@ export function useAiTraceDebug(options: TraceDebugOptions) {
         referencePrompt: [
           t("this_is_a_request", { requestType: t(requestType) }),
           t("target_database", {
-            dbType: context.dbType === 'oracle' ? 'Oracle' : 'PostgreSQL'
+            dbType: context.dbType === 'mysql' ? 'MySQL 8.4' : context.dbType === 'oracle' ? 'Oracle' : 'PostgreSQL'
           }),
           t("target_3", {
             schema: context.schema, objectName: context.objectName
@@ -107,7 +107,8 @@ export function useAiTraceDebug(options: TraceDebugOptions) {
           'When traceInfo.source_kind is original, use traceInfo.executed_source as the source captured for this execution. Its source_sha256 identifies that exact snapshot. currentSource is an editable reference and may differ. Never use currentSource to prove executed behavior.',
           'line_mapping describes source line numbering. If source_kind is instrumented or the snapshot is missing, explicitly report that executed-source mapping is unverified; do not claim a precise source location without evidence. Do not omit trace steps or infer missing variable values.',
           'For generated_procedure_to_original, traceInfo.procedure_to_source maps raw trace line numbers to displayed executed_source body lines. This display mapping can associate generated statements with the nearest body line; it is not proof that every mapped step executed that exact original statement. Check source, step order and variable changes together; unmapped setup steps are not original source statements.',
-          ...(context.objectType === 'TRIGGER' ? [t("trace_prompt_trigger_line_mapping")] : []),
+          ...(context.dbType === 'mysql' ? ['MySQL trace records come from an isolated instrumented copy of the saved routine. log_text identifies before/after/condition/branch-entry/loop-entry/return snapshots plus handler-entry/handler-exit/signal/control-flow/block-entry/block-exit. Nested local variables use B<number>.name keys and variable_types; an inner shadowed value must not be mistaken for its outer counterpart. Use after snapshots to prove assignment results. loop_path records actual WHILE/LOOP/REPEAT iterations; control-flow snapshots mark LEAVE/ITERATE before the jump. execution_status=incomplete means later behavior is unknown; execution_error and limits describe why recording stopped. Values are exact text; character values are JSON-quoted so a literal string cannot be confused with the unquoted [SQL NULL] marker. return_values records the native result. Supported SQL, cursor FETCH and CONTINUE/EXIT handlers run natively on isolated empty InnoDB copies populated only with traceInfo.table_fixtures. No existing application rows, peer triggers or foreign keys are copied. sql_scope/sql_tables/isolated_tables describe this limited environment; results do not prove behavior on original data. handler-entry/handler-exit inherit the originating runtime loop path; signal marks SIGNAL/RESIGNAL before execution. Original routines/triggers are never replaced; dynamic SQL, other routine calls, joins, subqueries and views are unsupported. For each diagnosis cite real step_id, line_num, loop_path, log_text and before/after variable values, distinguishing facts from hypotheses.'] : []),
+          ...(context.objectType === 'TRIGGER' ? context.dbType === 'mysql' ? ['For MySQL triggers, executed_source is the original ACTION_STATEMENT body, numbered from 1. NEW/OLD fields are native row aliases, not local variables. traceInfo.trigger_outcome contains rows in the isolated table after the event; BEFORE INSERT may show NEW auto-increment=0 before the server assigns the inserted ID. Only the selected trigger runs against an empty InnoDB table copy; provided OLD values seed UPDATE/DELETE. No existing rows, peer triggers or foreign keys are copied. DML is rolled back and both copies are removed. This does not prove full-table integration behavior.'] : [t("trace_prompt_trigger_line_mapping")] : []),
           ...[
           "trace_prompt_evidence_requirements",
           "trace_prompt_facts_and_assumptions",
@@ -140,7 +141,7 @@ export function useAiTraceDebug(options: TraceDebugOptions) {
           "trace_prompt_analysis_workflow",
           "trace_prompt_response_structure",
           "the_following_json_contains_the_reference_information_for_analysis",
-          ].map(text => t(text)),
+          ].filter(text => context.dbType !== 'mysql' || !['trace_prompt_line_markers','trace_prompt_step_snapshot_timing','trace_prompt_assignment_visibility','trace_prompt_variable_carryover'].includes(text)).map(text => t(text)),
           JSON.stringify({
             currentSource: context.sourceText,
             trace: JSON.parse(result.content) as unknown
