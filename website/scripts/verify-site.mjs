@@ -48,6 +48,12 @@ for (const locale of ['en', 'ja']) {
     if (slug === 'guides/getting-started') {
       assert.ok(!html.includes('Oracle Database 12'), `Version requirement must stay in the environment guide: ${pathname}`);
     }
+    assert.ok(html.includes(`href="${sitePath(locale, 'guides/video-tutorials')}"`), `Missing video tutorial navigation: ${pathname}`);
+    if (!slug || slug === 'guides/video-tutorials') {
+      assert.ok(html.includes(`href="${SITE.youtube}"`), `Missing official YouTube channel: ${pathname}`);
+      assert.ok(!html.includes('youtube.com/embed/'), `Tutorial guide must link without embedding a player: ${pathname}`);
+    }
+    if (!slug) assert.ok(html.includes('id="video-tutorial-title"'), `Missing landing video section: ${pathname}`);
     const currentPage = slug ? content.pages.find(page => `guides/${page.slug}` === slug) : null;
     if (!slug || currentPage?.image) assert.ok(html.includes(`data-screenshot-locale="${locale}"`), `Missing localized screenshot: ${pathname}`);
     if (slug) {
@@ -74,3 +80,12 @@ for (const locale of ['en', 'ja']) {
 }
 assert.ok(fs.existsSync(path.join(dist, 'pagefind/pagefind.js')), 'Search index was not built');
 console.log(`Verified ${pages} bilingual pages, language counterparts, DB badges and ${links} local resources under ${SITE.base}/.`);
+const sitemap = fs.readFileSync(path.join(dist, 'sitemap.xml'), 'utf8');
+assert.match(sitemap, /^<\?xml version="1\.0" encoding="UTF-8"\?>\n<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">\n/);
+assert.ok(sitemap.endsWith('\n</urlset>\n'));
+const sitemapUrls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1]);
+const expectedUrls = ['en', 'ja'].flatMap(locale => ['', ...siteContent(translator(locale)).pages.map(page => `guides/${page.slug}`)]
+  .map(slug => new URL(sitePath(locale, slug), SITE.origin).href));
+assert.deepEqual(sitemapUrls.sort(), expectedUrls.sort(), 'Standalone sitemap must match all published pages');
+assert.equal(new Set(sitemapUrls).size, sitemapUrls.length, 'Duplicate sitemap URL');
+console.log(`Verified standalone sitemap.xml: ${sitemapUrls.length} canonical URLs without child sitemaps.`);

@@ -153,7 +153,7 @@ selection, saving, scope and the separate website theme, with all three styles
 captured in English and Japanese. Sections may include an optional `image` to
 place a screenshot next to its explanation.
 
-The content model currently contains **38 guide/support pages in each language**,
+The content model currently contains **39 guide/support pages in each language**,
 including transaction control, Contact & Support and Privacy Policy. Oracle-only
 and PostgreSQL-only screens carry their supported database badge. Screenshot-backed
 guides use separate English/Japanese images captured in the matching app language.
@@ -241,3 +241,15 @@ The start group also includes `guides/database-support/`, a bilingual reference 
 Database-specific behavior sections are omitted when their only content is a MySQL note. The transaction comparison table covers Oracle, PostgreSQL and MySQL, including InnoDB DML, implicit DDL commits and error handling.
 
 The Session, Lock, Object Privilege, User/Role and Tablespace administration guides each include three dedicated MySQL reference tables alongside the existing Oracle/PostgreSQL tables (15 tables, 48 rows total). They describe list filters, details, actions and permission/read-only limits using the current MySQL UI and docs/MYSQL.md as references. These belong to the page’s normal operation reference, not the removed generic MySQL operations and differences block.
+
+## Standalone sitemap
+
+`src/pages/sitemap.xml.ts` builds `/monabase/sitemap.xml` as a simple UTF-8 XML urlset. It lists the English and Japanese landing/guide URLs directly, without a sitemap index, child sitemap or extension namespaces. The route list comes from the content model, so new guides are included automatically. The Starlight-generated sitemap-index.xml and sitemap-0.xml remain available for existing registrations. Submit the standalone URL in Search Console to test this simpler format; a valid XML file does not itself prove that Google can fetch it. Tests and built-site verification check the exact route set, duplicates and XML shape.
+
+The start group contains `guides/video-tutorials/` with the official MonaBase YouTube channel, topic descriptions and advice on matching the video’s database/version. The landing page includes a localized tutorial card and YouTube icon link. The channel is configured once in `src/config.ts` as `SITE.youtube`; no player is embedded.
+
+## Temporary security audit exception
+
+Run `npm run audit:security` before publication. The Website workflow uses the same command. `security-audit-policy.json` records the user-approved exception for [GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf), limited to picomatch 2.3.2/4.0.7 in this static website's build tools, expiring **2026-12-02 00:00 UTC**. No upstream patched release was available when reviewed on November 18. Visitor input is not used as a glob pattern and no Node server is deployed. This exception does not mean the dependency has no vulnerability.
+
+The audit helper accepts only that exact advisory and dependency chains composed entirely of that advisory. Other moderate/high/critical findings, unknown/malformed audit reports, network errors, nonstatic output, unreviewed versions and expired exceptions fail the check. It does not use `--force`, lower the severity threshold or change desktop-app audit rules. Recheck the upstream release and advisory before the expiry date; remove the exception after installing a verified fix.

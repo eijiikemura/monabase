@@ -14,6 +14,8 @@ test('Website builds are read-only and publish only on explicit dispatch in the 
   assert.match(workflow.jobs.build.if, /!github.event.repository.fork/);
   assert.match(workflow.jobs.build.if, /github.event.repository.default_branch/);
   assert.equal(workflow.jobs.build.defaults.run['working-directory'], 'website');
+  assert.ok(workflow.jobs.build.steps.some(step => step.run === 'npm run audit:security'));
+  assert.ok(!workflow.jobs.build.steps.some(step => step['continue-on-error']));
   assert.equal(workflow.jobs.deploy.needs, 'build');
   assert.match(workflow.jobs.deploy.if, /github.event_name == 'workflow_dispatch'/);
   assert.match(workflow.jobs.deploy.if, /github.event.repository.visibility == 'public'/);

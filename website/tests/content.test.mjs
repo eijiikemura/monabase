@@ -22,7 +22,7 @@ test('All authored website keys have nonempty English and Japanese translations'
 });
 test('Both locales expose the same unique routes, database capabilities and guide structure', () => {
   const en = siteContent(translator('en')), ja = siteContent(translator('ja'));
-  assert.equal(en.pages.length, 38);
+  assert.equal(en.pages.length, 39);
   assert.equal(new Set(en.pages.map(page => page.slug)).size, en.pages.length);
   assert.deepEqual(en.pages.map(page => [page.slug, page.databases]), ja.pages.map(page => [page.slug, page.databases]));
   for (const [locale, content] of [['en', en], ['ja', ja]]) for (const page of content.pages) {
@@ -31,8 +31,8 @@ test('Both locales expose the same unique routes, database capabilities and guid
     assert.ok(page.title && page.summary && page.intro);
     assert.ok(informational ? page.steps.length === 0 : page.steps.length >= 3);
     assert.ok(page.databases.every(database => ['oracle', 'postgresql', 'mysql'].includes(database)));
-    assert.equal(page.databases.length === 0, informational);
-    assert.equal(Boolean(page.image), !informational && page.slug !== 'database-support', `Screenshot scope: ${locale}/${page.slug}`);
+    assert.equal(page.databases.length === 0, informational || page.slug === 'video-tutorials');
+    assert.equal(Boolean(page.image), !informational && !['database-support', 'video-tutorials'].includes(page.slug), `Screenshot scope: ${locale}/${page.slug}`);
     for (const image of [...(page.image ? [page.image] : []), ...(page.sections ?? []).flatMap(section => section.image ? [section.image] : [])]) {
       const screenshot = fs.readFileSync(path.join(root, '../docs/screenshots/manual', locale, `${image}.png`));
       assert.equal(screenshot.subarray(1, 4).toString(), 'PNG');
@@ -157,4 +157,35 @@ test('DB administration guides provide detailed MySQL reference tables in both l
     assert.match(storage, /read-only|参照専用/);
   }
   assert.deepEqual(structures[0], structures[1]);
+});
+
+test('The standalone sitemap contains separate canonical URLs for both languages without an index or extensions', async () => {
+  const { GET } = await import('../src/pages/sitemap.xml.ts');
+  const response = GET({});
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'application/xml; charset=utf-8');
+  const xml = await response.text();
+  assert.ok(xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'));
+  assert.ok(xml.endsWith('\n</urlset>\n'));
+  assert.doesNotMatch(xml, /sitemapindex|xhtml:|lastmod|\/404\//);
+  const actual = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1]);
+  const expected = ['en', 'ja'].flatMap(locale => ['', ...siteContent(translator(locale)).pages.map(page => `guides/${page.slug}`)]
+    .map(route => new URL(sitePath(locale, route), SITE.origin).href));
+  assert.equal(new Set(actual).size, actual.length);
+  assert.deepEqual(actual.sort(), expected.sort());
+});
+
+test('Video tutorials use the official channel and localized guide without implying database coverage', () => {
+  assert.equal(SITE.youtube, 'https://www.youtube.com/channel/UC8rzI4OrnXZd2-2WmCj0vkg');
+  for (const locale of ['en', 'ja']) {
+    const content = siteContent(translator(locale));
+    const page = content.pages.find(page => page.slug === 'video-tutorials');
+    assert.equal(page.group, 'start');
+    assert.deepEqual(page.databases, []);
+    assert.ok(!page.image);
+    assert.ok(page.intro.includes(SITE.youtube));
+    assert.ok(!page.intro.includes('{{youtubeUrl}}'));
+    assert.equal(page.tables[0].rows.length, 5);
+    assert.ok(content.ui.videos_title && content.ui.videos_body && content.ui.videos_channel && content.ui.videos_guide);
+  }
 });

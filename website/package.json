@@ -10,7 +10,8 @@
     "i18n:check": "node scripts/extract-i18n.mjs --check",
     "check": "npm run i18n:check && npm run content:generate && astro check && node --test tests/*.test.mjs",
     "build": "npm run content:generate && astro build && node scripts/verify-site.mjs",
-    "preview": "astro preview --host 127.0.0.1"
+    "preview": "astro preview --host 127.0.0.1",
+    "audit:security": "node scripts/audit-security.mjs"
   },
   "dependencies": {
     "@astrojs/starlight": "0.42.7",

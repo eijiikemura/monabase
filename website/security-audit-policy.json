@@ -1,0 +1,9 @@
+{
+  "advisory": "https://github.com/advisories/GHSA-fc5q-39xc-vjpf",
+  "package": "picomatch",
+  "versions": ["2.3.2", "4.0.7"],
+  "reviewedAt": "2026-11-18",
+  "expiresAt": "2026-12-02T00:00:00Z",
+  "scope": "Static website build tools only; no visitor-controlled glob patterns or Node server in the published GitHub Pages site.",
+  "reason": "No upstream patched version exists at review time. The user approved a temporary exception for this advisory only. All other moderate/high/critical findings, unknown audit results and expired exceptions fail the website build."
+}

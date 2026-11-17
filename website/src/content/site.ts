@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Translate } from '../i18n/index.ts';
+import { SITE } from '../config.ts';
 export type Database = 'oracle' | 'postgresql' | 'mysql';
 export interface ManualPage {
   slug: string; group: string; databases: Database[]; title: string; summary: string;
@@ -31,6 +32,10 @@ function traceTableSection(table: { title: string; description: string; headers:
 export function siteContent(t: Translate) {
   return {
     ui: {
+      videos_title: t("site_videos_title"),
+      videos_body: t("site_videos_body"),
+      videos_channel: t("site_videos_channel"),
+      videos_guide: t("site_videos_guide"),
       mysql_title: t("mysql_section_title"),
       styles_title: t("site_styles_title"),
       styles_body: t("site_styles_body"),
@@ -228,6 +233,28 @@ export function siteContent(t: Translate) {
           ],
         }],
         note: t("database_support_note"),
+      },
+      {
+        slug: "video-tutorials",
+        group: "start",
+        databases: [],
+        title: t("video_tutorials_title"),
+        summary: t("video_tutorials_summary"),
+        intro: t("video_tutorials_intro").replaceAll('{{youtubeUrl}}', SITE.youtube),
+        steps: [t("video_tutorials_step_1"), t("video_tutorials_step_2"), t("video_tutorials_step_3")],
+        tables: [{
+          title: t("video_tutorials_topics_title"),
+          description: t("video_tutorials_topics_description"),
+          headers: [t("video_tutorials_topic"), t("video_tutorials_learning")],
+          rows: [
+            [t("video_tutorials_sql_title"), t("video_tutorials_sql_body")],
+            [t("video_tutorials_git_title"), t("video_tutorials_git_body")],
+            [t("video_tutorials_trace_title"), t("video_tutorials_trace_body")],
+            [t("video_tutorials_data_title"), t("video_tutorials_data_body")],
+            [t("video_tutorials_diagrams_title"), t("video_tutorials_diagrams_body")],
+          ],
+        }],
+        note: t("video_tutorials_note"),
       },
       {
         slug: "connection",
