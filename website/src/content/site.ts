@@ -32,6 +32,12 @@ function traceTableSection(table: { title: string; description: string; headers:
 export function siteContent(t: Translate) {
   return {
     ui: {
+      social_title: t("site_social_title"),
+      social_description: t("site_social_description"),
+      social_image_alt: t("site_social_image_alt"),
+      social_tagline_first: t("site_social_tagline_first"),
+      social_tagline_second: t("site_social_tagline_second"),
+      social_features: t("site_social_features"),
       videos_title: t("site_videos_title"),
       videos_body: t("site_videos_body"),
       videos_channel: t("site_videos_channel"),

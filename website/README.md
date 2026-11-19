@@ -253,3 +253,14 @@ The start group contains `guides/video-tutorials/` with the official MonaBase Yo
 Run `npm run audit:security` before publication. The Website workflow uses the same command. `security-audit-policy.json` records the user-approved exception for [GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf), limited to picomatch 2.3.2/4.0.7 in this static website's build tools, expiring **2026-12-02 00:00 UTC**. No upstream patched release was available when reviewed on November 18. Visitor input is not used as a glob pattern and no Node server is deployed. This exception does not mean the dependency has no vulnerability.
 
 The audit helper accepts only that exact advisory and dependency chains composed entirely of that advisory. Other moderate/high/critical findings, unknown/malformed audit reports, network errors, nonstatic output, unreviewed versions and expired exceptions fail the check. It does not use `--force`, lower the severity threshold or change desktop-app audit rules. Recheck the upstream release and advisory before the expiry date; remove the exception after installing a verified fix.
+
+
+## Social sharing cards (Open Graph and X)
+
+The landing pages and every guide include localized titles, descriptions and social images in static HTML. The two committed 1200×630 PNGs in `public/social/` are approximately 110 KB each. Canonical and Open Graph URLs preserve the project base, locale and guide path. X uses `summary_large_image` and the developer's account.
+
+`src/social.ts` builds page-specific frontmatter head entries through `scripts/generate-content.mjs`; Starlight merges these with its defaults without duplicate tags. No custom Head component or client-side injection is needed. Copy lives in `src/content/site.ts` and the website translation catalogs. Guides use their own titles and summaries.
+
+`node scripts/create-social-images.mjs` is an authoring tool using the existing sharp installation, the official icon and real localized SQL screenshots. Run it with Japanese fonts available and inspect the output. Commit the PNGs; ordinary builds do not regenerate them or require those fonts. Social metadata tests and the production-site verifier cover both locales and all 80 public pages.
+
+When changing an image, use a new versioned filename and update its generator, `socialImagePath` and verification references. Social networks may cache earlier cards; successful HTTP checks do not guarantee that a particular network has refreshed its preview.

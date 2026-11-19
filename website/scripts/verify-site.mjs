@@ -9,6 +9,43 @@ import { SITE, sitePath } from '../src/config.ts';
 import { siteContent } from '../src/content/site.ts';
 import { translator } from '../src/i18n/index.ts';
 const dist = path.resolve(fileURLToPath(new URL('../dist/', import.meta.url)));
+const decodeAttribute = value => value.replace(/&(?:amp|quot|lt|gt|#39|#x27);/g, entity => ({ '&amp;': '&', '&quot;': '"', '&lt;': '<', '&gt;': '>', '&#39;': "'", '&#x27;': "'" })[entity]);
+function verifySocial(html, locale, slug, content) {
+  const head = html.match(/<head[^>]*>([\s\S]*?)<\/head>/)?.[1];
+  assert.ok(head, 'Missing HTML head');
+  const attributes = tag => Object.fromEntries([...tag.matchAll(/([\w:-]+)="([^"]*)"/g)].map(([, key, value]) => [key, decodeAttribute(value)]));
+  const metas = new Map();
+  for (const tag of head.matchAll(/<meta\b[^>]*>/g)) {
+    const attrs = attributes(tag[0]);
+    const key = attrs.property ?? attrs.name;
+    if (!key || (!key.startsWith('og:') && !key.startsWith('twitter:'))) continue;
+    assert.ok(!metas.has(key), `Duplicate social tag: ${locale}/${slug}/${key}`);
+    metas.set(key, attrs.content);
+  }
+  const title = slug ? `${content.pages.find(page => `guides/${page.slug}` === slug).title} | MonaBase` : content.ui.social_title;
+  const description = slug ? content.pages.find(page => `guides/${page.slug}` === slug).summary : content.ui.social_description;
+  const url = new URL(sitePath(locale, slug), SITE.origin).href;
+  assert.equal(metas.get('og:url'), url);
+  assert.equal(metas.get('og:title'), title);
+  assert.equal(metas.get('twitter:title'), title);
+  assert.equal(metas.get('og:description'), description);
+  assert.equal(metas.get('twitter:description'), description);
+  assert.equal(metas.get('twitter:card'), 'summary_large_image');
+  assert.equal(metas.get('twitter:site'), '@eijiikemura');
+  assert.equal(metas.get('og:locale'), locale === 'ja' ? 'ja_JP' : 'en_US');
+  assert.equal(metas.get('og:type'), slug ? 'article' : 'website');
+  const image = `${SITE.origin}${SITE.base}/social/monabase-${locale}-v1.png`;
+  assert.equal(metas.get('og:image'), image);
+  assert.equal(metas.get('twitter:image'), image);
+  assert.equal(metas.get('og:image:alt'), content.ui.social_image_alt);
+  assert.equal(metas.get('twitter:image:alt'), content.ui.social_image_alt);
+  assert.equal(metas.get('og:image:width'), '1200');
+  assert.equal(metas.get('og:image:height'), '630');
+  const canonicals = [...head.matchAll(/<link\b[^>]*>/g)].map(match => attributes(match[0])).filter(attrs => attrs.rel === 'canonical');
+  assert.equal(canonicals.length, 1);
+  assert.equal(canonicals[0].href, url);
+  assert.ok(fs.existsSync(path.join(dist, `social/monabase-${locale}-v1.png`)));
+}
 let pages = 0, links = 0;
 for (const locale of ['en', 'ja']) {
   const content = siteContent(translator(locale));
@@ -17,6 +54,7 @@ for (const locale of ['en', 'ja']) {
     const filename = path.join(dist, pathname.slice(SITE.base.length), 'index.html');
     assert.ok(fs.existsSync(filename), `Missing built page: ${pathname}`);
     const html = fs.readFileSync(filename, 'utf8');
+    verifySocial(html, locale, slug, content);
     assert.match(html, new RegExp(`<html[^>]+lang="${locale}"`));
     assert.equal((html.match(/<h1(?:\s|>)/g) || []).length, 1, `Expected one page heading: ${pathname}`);
     const counterpart = sitePath(locale === 'en' ? 'ja' : 'en', slug);

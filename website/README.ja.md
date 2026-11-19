@@ -138,3 +138,15 @@ DB管理のセッション・ロック・オブジェクト権限・ユーザー
 公開前に `npm run audit:security` を実行します。Websiteワークフローも同じ検査を使用します。`security-audit-policy.json`には、ユーザー承認済みの[GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf)の例外を記録しています。対象は静的サイトの制作ツール内のpicomatch 2.3.2／4.0.7だけで、期限は**2026-12-02 00:00 UTC（日本時間09:00）**です。11月18日の確認時点で公式修正版は未公開です。閲覧者の入力をglobに渡さず、公開先ではNodeサーバーを動かしません。依存に脆弱性がなくなったという意味ではありません。
 
 完全にこの指摘だけに由来する依存経路に限定して許容します。他のmoderate以上の指摘・不明／不正な監査結果・通信エラー・静的出力以外・未確認版・期限切れは失敗します。`--force`・監査基準の引下げ・アプリ本体の監査ルール変更は行いません。期限前に修正版の公開状況を確認し、検証済み修正を適用したら例外を削除します。
+
+
+## SNS共有カード（OGP・X）
+
+トップページと全ガイドは、日英それぞれのタイトル・説明・共有画像を静的HTMLへ出力します。画像は`public/social/monabase-en-v1.png`と`monabase-ja-v1.png`（1200×630 PNG、各約110KB）です。ページの正規URLと`og:url`は`/monabase/`および言語・ガイドのパスを保持します。Xは`summary_large_image`と作者アカウントを指定しています。
+
+- メタ情報の組立：`src/social.ts`。`scripts/generate-content.mjs`が各ページのfrontmatterへ設定し、Starlightの既定値と同名のタグを置き換えます。Head全体の上書きやクライアントJavaScriptは使いません。
+- 文言：`src/content/site.ts`のsocial系UIと`src/i18n/en.json`／`ja.json`。ガイドは各ページのタイトル・概要を使用します。
+- 画像制作：`node scripts/create-social-images.mjs`。実SQL画面と正式アイコンから日英画像を生成する制作専用ツールです。既存のsharpを使い、日本語フォントを利用できる環境で実行・見た目を確認します。PNGはGitへ含めるため、CIの通常ビルドは画像を再生成せず、フォントに依存しません。
+- 検証：`tests/social.test.mjs`と本番ビルドの`scripts/verify-site.mjs`が、全80ページの重複タグ・言語・絶対画像URL・タイトル／説明・canonical・画像の存在を確認します。
+
+SNSは取得したカードをキャッシュする場合があります。画像の見た目を更新するときは新しい版のファイル名へ変更し、生成スクリプト・`socialImagePath`・検証の参照も合わせます。公開HTMLと画像のHTTP確認は行いますが、各SNSの実際のカード表示は投稿プレビュー等で別途確認してください。
