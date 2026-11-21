@@ -61,13 +61,6 @@ const protections = [
     <div><h2 id="styles-title">{ui.styles_title}</h2><p>{ui.styles_body}</p><a href={sitePath(locale, 'guides/styles')}>{ui.styles_link} <span aria-hidden="true">→</span></a></div>
     <ul class="style-options"><li><span class="style-swatch mona" aria-hidden="true"></span>{ui.style_mona}</li><li><span class="style-swatch simple" aria-hidden="true"></span>{ui.style_simple}</li><li><span class="style-swatch dark" aria-hidden="true"></span>{ui.style_dark}</li></ul>
   </aside>
-  <section class="video-tutorial-note" aria-labelledby="video-tutorial-title">
-    <div><h2 id="video-tutorial-title">{ui.videos_title}</h2><p>{ui.videos_body}</p></div>
-    <div class="video-tutorial-actions">
-      <a class="button secondary" href={SITE.youtube}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="4" fill="#ff0033"/><path d="m10 9 6 3-6 3V9Z" fill="white"/></svg>{ui.videos_channel}</a>
-      <a href={sitePath(locale, 'guides/video-tutorials')}>{ui.videos_guide}<span aria-hidden="true"> →</span></a>
-    </div>
-  </section>
   <section id="screens" class="screen-section" aria-labelledby="screens-title">
     <p class="eyebrow">{ui.screens_eyebrow}</p><h2 id="screens-title">{ui.screens_title}</h2><p class="section-intro">{ui.screens_intro}</p>
     {groups.map(group => <div class="screen-group"><h3>{group.label}</h3><div class="screen-grid">{(group.slug === 'start'

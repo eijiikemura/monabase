@@ -158,11 +158,3 @@ header.header { backdrop-filter: blur(16px); }
 .manual-table-scroll { max-width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: .5rem; margin-block: 1.5rem; }
 .manual-table-scroll table { display: table; min-width: 48rem; width: 100%; margin: 0; }
 .manual-table-scroll :is(th, td) { min-width: 9rem; white-space: normal; vertical-align: top; }
-
-.landing .video-tutorial-note { margin-top: 3rem; padding: 1.6rem; border: 1px solid var(--border); border-radius: .65rem; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
-.landing .video-tutorial-note h2 { font-size: 1.4rem; line-height: 1.4; letter-spacing: -.02em; margin: 0 0 .6rem; }
-.video-tutorial-note p { color: var(--muted); line-height: 1.8; margin: 0; max-width: 40rem; }
-.video-tutorial-actions { display: flex; flex-direction: column; gap: .8rem; flex-shrink: 0; }
-.video-tutorial-actions .button { display: inline-flex; align-items: center; gap: .65rem; }
-.video-tutorial-actions > a:not(.button) { font-size: .85rem; }
-@media (max-width: 49.99rem) { .landing .video-tutorial-note { align-items: flex-start; flex-direction: column; } .video-tutorial-actions { width: 100%; } .video-tutorial-actions .button { white-space: normal; } }

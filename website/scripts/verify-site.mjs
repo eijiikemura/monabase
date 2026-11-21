@@ -86,12 +86,9 @@ for (const locale of ['en', 'ja']) {
     if (slug === 'guides/getting-started') {
       assert.ok(!html.includes('Oracle Database 12'), `Version requirement must stay in the environment guide: ${pathname}`);
     }
-    assert.ok(html.includes(`href="${sitePath(locale, 'guides/video-tutorials')}"`), `Missing video tutorial navigation: ${pathname}`);
-    if (!slug || slug === 'guides/video-tutorials') {
-      assert.ok(html.includes(`href="${SITE.youtube}"`), `Missing official YouTube channel: ${pathname}`);
-      assert.ok(!html.includes('youtube.com/embed/'), `Tutorial guide must link without embedding a player: ${pathname}`);
-    }
-    if (!slug) assert.ok(html.includes('id="video-tutorial-title"'), `Missing landing video section: ${pathname}`);
+    assert.ok(!html.includes('guides/video-tutorials'), `Removed tutorial navigation returned: ${pathname}`);
+    assert.ok(!html.includes('UC8rzI4OrnXZd2-2WmCj0vkg'), `Removed YouTube channel returned: ${pathname}`);
+    assert.ok(!fs.existsSync(path.join(dist, locale === 'ja' ? 'ja/guides/video-tutorials/index.html' : 'guides/video-tutorials/index.html')), 'Removed guide must not be published');
     const currentPage = slug ? content.pages.find(page => `guides/${page.slug}` === slug) : null;
     if (!slug || currentPage?.image) assert.ok(html.includes(`data-screenshot-locale="${locale}"`), `Missing localized screenshot: ${pathname}`);
     if (slug) {

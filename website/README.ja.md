@@ -131,7 +131,6 @@ DB管理のセッション・ロック・オブジェクト権限・ユーザー
 
 `src/pages/sitemap.xml.ts`が `/monabase/sitemap.xml` を標準的なUTF-8のXML urlsetとして生成します。中継用index・子サイトマップ・拡張名前空間を使わず、日英トップとガイドのURLを直接掲載します。URL一覧はコンテンツモデルから取得し、ガイド追加時にも追従します。既存登録のため、Starlight生成のsitemap-index.xml・sitemap-0.xmlは維持します。Search Consoleでは新しい単体URLを登録して切り分けます。XMLが正常でもGoogle側の取得成功を保証するものではありません。テストと本番出力検証で、全ルートの一致・重複・XML形式を確認します。
 
-「はじめに」に `guides/video-tutorials/`（動画チュートリアル）を掲載しています。公式チャンネルへのリンク・紹介テーマ・動画の対象DBや版の確認方法を日英で案内し、トップページにもアイコン付きYouTubeリンクとガイドへの導線を表示します。チャンネルURLは `src/config.ts` の `SITE.youtube` に一元化し、プレーヤーは埋め込みません。
 
 ## 期限付きのセキュリティ監査例外
 
@@ -147,6 +146,6 @@ DB管理のセッション・ロック・オブジェクト権限・ユーザー
 - メタ情報の組立：`src/social.ts`。`scripts/generate-content.mjs`が各ページのfrontmatterへ設定し、Starlightの既定値と同名のタグを置き換えます。Head全体の上書きやクライアントJavaScriptは使いません。
 - 文言：`src/content/site.ts`のsocial系UIと`src/i18n/en.json`／`ja.json`。ガイドは各ページのタイトル・概要を使用します。
 - 画像制作：`node scripts/create-social-images.mjs`。実SQL画面と正式アイコンから日英画像を生成する制作専用ツールです。既存のsharpを使い、日本語フォントを利用できる環境で実行・見た目を確認します。PNGはGitへ含めるため、CIの通常ビルドは画像を再生成せず、フォントに依存しません。
-- 検証：`tests/social.test.mjs`と本番ビルドの`scripts/verify-site.mjs`が、全80ページの重複タグ・言語・絶対画像URL・タイトル／説明・canonical・画像の存在を確認します。
+- 検証：`tests/social.test.mjs`と本番ビルドの`scripts/verify-site.mjs`が、全78ページの重複タグ・言語・絶対画像URL・タイトル／説明・canonical・画像の存在を確認します。
 
 SNSは取得したカードをキャッシュする場合があります。画像の見た目を更新するときは新しい版のファイル名へ変更し、生成スクリプト・`socialImagePath`・検証の参照も合わせます。公開HTMLと画像のHTTP確認は行いますが、各SNSの実際のカード表示は投稿プレビュー等で別途確認してください。
