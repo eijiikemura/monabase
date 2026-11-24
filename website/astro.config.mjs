@@ -14,7 +14,7 @@ const ANALYTICS_CSS = "#monabase-analytics-consent{position:fixed;z-index:99999;
 const en = siteContent(translator('en'));
 const ja = siteContent(translator('ja'));
 // Keep the environment reference visible directly after Getting started.
-const startGuideSlugs = ['getting-started', 'database-support', 'connection', 'transaction-control', 'workspace', 'styles', 'settings', 'contact', 'privacy-policy'];
+const startGuideSlugs = ['getting-started', 'database-support', 'video-tutorials', 'connection', 'transaction-control', 'workspace', 'styles', 'settings', 'contact', 'privacy-policy'];
 export default defineConfig({
   output: 'static',
   site: SITE.origin,

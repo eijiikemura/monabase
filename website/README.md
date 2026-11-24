@@ -246,6 +246,7 @@ The Session, Lock, Object Privilege, User/Role and Tablespace administration gui
 
 `src/pages/sitemap.xml.ts` builds `/monabase/sitemap.xml` as a simple UTF-8 XML urlset. It lists the English and Japanese landing/guide URLs directly, without a sitemap index, child sitemap or extension namespaces. The route list comes from the content model, so new guides are included automatically. The Starlight-generated sitemap-index.xml and sitemap-0.xml remain available for existing registrations. Submit the standalone URL in Search Console to test this simpler format; a valid XML file does not itself prove that Google can fetch it. Tests and built-site verification check the exact route set, duplicates and XML shape.
 
+The start group contains `guides/video-tutorials/` with the official MonaBase YouTube channel, topic descriptions and advice on matching the video’s database/version. The landing page includes a localized tutorial card and YouTube icon link. The channel is configured once in `src/config.ts` as `SITE.youtube`; no player is embedded.
 
 ## Temporary security audit exception
 
@@ -260,6 +261,6 @@ The landing pages and every guide include localized titles, descriptions and soc
 
 `src/social.ts` builds page-specific frontmatter head entries through `scripts/generate-content.mjs`; Starlight merges these with its defaults without duplicate tags. No custom Head component or client-side injection is needed. Copy lives in `src/content/site.ts` and the website translation catalogs. Guides use their own titles and summaries.
 
-`node scripts/create-social-images.mjs` is an authoring tool using the existing sharp installation, the official icon and real localized SQL screenshots. Run it with Japanese fonts available and inspect the output. Commit the PNGs; ordinary builds do not regenerate them or require those fonts. Social metadata tests and the production-site verifier cover both locales and all 78 public pages.
+`node scripts/create-social-images.mjs` is an authoring tool using the existing sharp installation, the official icon and real localized SQL screenshots. Run it with Japanese fonts available and inspect the output. Commit the PNGs; ordinary builds do not regenerate them or require those fonts. Social metadata tests and the production-site verifier cover both locales and all 80 public pages.
 
 When changing an image, use a new versioned filename and update its generator, `socialImagePath` and verification references. Social networks may cache earlier cards; successful HTTP checks do not guarantee that a particular network has refreshed its preview.
