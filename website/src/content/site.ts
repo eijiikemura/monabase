@@ -32,6 +32,9 @@ function traceTableSection(table: { title: string; description: string; headers:
 export function siteContent(t: Translate) {
   return {
     ui: {
+      validation_title: t("validation_section_title"),
+      validation_intro: t("validation_section_intro"),
+
       social_title: t("site_social_title"),
       social_description: t("site_social_description"),
       social_image_alt: t("site_social_image_alt"),
@@ -128,6 +131,11 @@ export function siteContent(t: Translate) {
       privacy_link: t("privacy_title"),
       contact_link: t("contact_title"),
     },
+    validationFeatures: [
+      { slug: "data-masking", title: t("masking_title"), body: t("masking_summary") },
+      { slug: "result-comparison", title: t("result_comparison_title"), body: t("result_comparison_summary") },
+      { slug: "stored-regression", title: t("stored_regression_title"), body: t("stored_regression_summary") },
+    ],
     groups: [
       { slug: "start", label: t("group_start") },
       { slug: "work", label: t("group_work") },
@@ -561,7 +569,7 @@ export function siteContent(t: Translate) {
         mysql: { intro: t("mysql_sql_intro") },
         title: t("sql_title"),
         summary: t("sql_summary"),
-        intro: t("sql_intro") + "\n\n" + t("ai_guide_link"),
+        intro: t("sql_intro") + "\n\n" + t("ai_guide_link") + "\n\n" + t("validation_result_link"),
         steps: [t("sql_step_1"), t("sql_step_2"), t("sql_step_3")],
         oracle: t("sql_oracle"),
         postgresql: t("sql_postgresql"),
@@ -1134,7 +1142,7 @@ export function siteContent(t: Translate) {
         mysql: { intro: t("mysql_stored_programs_intro") },
         title: t("stored_programs_title"),
         summary: t("stored_programs_summary"),
-        intro: t("stored_programs_intro") + "\n\n" + t("ai_guide_link"),
+        intro: t("stored_programs_intro") + "\n\n" + t("ai_guide_link") + "\n\n" + t("validation_regression_link"),
         steps: [t("stored_programs_step_1"), t("stored_programs_step_2"), t("stored_programs_step_3")],
         oracle: t("stored_programs_oracle"),
         postgresql: t("stored_programs_postgresql"),
@@ -1225,7 +1233,7 @@ export function siteContent(t: Translate) {
         databases: ["oracle"],
         title: t("packages_title"),
         summary: t("packages_summary"),
-        intro: t("packages_intro") + "\n\n" + t("ai_guide_link"),
+        intro: t("packages_intro") + "\n\n" + t("ai_guide_link") + "\n\n" + t("validation_regression_link"),
         steps: [t("packages_step_1"), t("packages_step_2"), t("packages_step_3")],
         oracle: t("packages_oracle"),
         tables: [
@@ -2288,7 +2296,7 @@ export function siteContent(t: Translate) {
         databases: ["oracle", "postgresql", "mysql"],
         title: t("data_generator_title"),
         summary: t("data_generator_summary"),
-        intro: t("data_generator_intro") + "\n\n" + t("ai_guide_link"),
+        intro: t("data_generator_intro") + "\n\n" + t("ai_guide_link") + "\n\n" + t("validation_mask_link"),
         steps: [t("data_generator_step_1"), t("data_generator_step_2"), t("data_generator_step_3")],
         note: t("data_generator_note"),
         tables: [
@@ -3399,6 +3407,53 @@ export function siteContent(t: Translate) {
           },
         ],
       },
+      {
+        slug: "data-masking", image: "data-masking", group: "workflow", databases: ["oracle", "postgresql", "mysql"],
+        title: t("masking_title"), summary: t("masking_summary"), intro: t("masking_intro"),
+        steps: [t("masking_step_1"), t("masking_step_2"), t("masking_step_3")], note: t("masking_note"),
+        sections: [{ title: t("masking_section_1_title"), body: t("masking_section_1_body") },
+          { title: t("masking_section_2_title"), body: t("masking_section_2_body") }],
+        tables: [{ title: t("masking_controls_title"), description: t("masking_controls_body"), headers: [t("validation_column_action"), t("validation_column_usage"), t("validation_column_effect")], rows: [
+          [t("masking_control_1_1"), t("masking_control_1_2"), t("masking_control_1_3")],
+          [t("masking_control_2_1"), t("masking_control_2_2"), t("masking_control_2_3")],
+          [t("masking_control_3_1"), t("masking_control_3_2"), t("masking_control_3_3")],
+          [t("masking_control_4_1"), t("masking_control_4_2"), t("masking_control_4_3")],
+          [t("masking_control_5_1"), t("masking_control_5_2"), t("masking_control_5_3")],
+          [t("masking_control_6_1"), t("masking_control_6_2"), t("masking_control_6_3")]
+        ] }],
+      },
+      {
+        slug: "result-comparison", image: "result-comparison", group: "workflow", databases: ["oracle", "postgresql", "mysql"],
+        title: t("result_comparison_title"), summary: t("result_comparison_summary"), intro: t("result_comparison_intro"),
+        steps: [t("result_comparison_step_1"), t("result_comparison_step_2"), t("result_comparison_step_3")], note: t("result_comparison_note"),
+        sections: [{ title: t("result_comparison_section_1_title"), body: t("result_comparison_section_1_body") },
+          { title: t("result_comparison_section_2_title"), body: t("result_comparison_section_2_body") }],
+        tables: [{ title: t("result_comparison_controls_title"), description: t("result_comparison_controls_body"), headers: [t("validation_column_action"), t("validation_column_usage"), t("validation_column_effect")], rows: [
+          [t("result_comparison_control_1_1"), t("result_comparison_control_1_2"), t("result_comparison_control_1_3")],
+          [t("result_comparison_control_2_1"), t("result_comparison_control_2_2"), t("result_comparison_control_2_3")],
+          [t("result_comparison_control_3_1"), t("result_comparison_control_3_2"), t("result_comparison_control_3_3")],
+          [t("result_comparison_control_4_1"), t("result_comparison_control_4_2"), t("result_comparison_control_4_3")],
+          [t("result_comparison_control_5_1"), t("result_comparison_control_5_2"), t("result_comparison_control_5_3")],
+          [t("result_comparison_control_6_1"), t("result_comparison_control_6_2"), t("result_comparison_control_6_3")]
+        ] }],
+      },
+      {
+        slug: "stored-regression", image: "stored-regression", group: "workflow", databases: ["oracle", "postgresql", "mysql"],
+        title: t("stored_regression_title"), summary: t("stored_regression_summary"), intro: t("stored_regression_intro"),
+        steps: [t("stored_regression_step_1"), t("stored_regression_step_2"), t("stored_regression_step_3"), t("stored_regression_step_4")], note: t("stored_regression_note"),
+        sections: [{ title: t("stored_regression_section_1_title"), body: t("stored_regression_section_1_body") },
+          { title: t("stored_regression_section_2_title"), body: t("stored_regression_section_2_body") }],
+        tables: [{ title: t("stored_regression_controls_title"), description: t("stored_regression_controls_body"), headers: [t("validation_column_action"), t("validation_column_usage"), t("validation_column_effect")], rows: [
+          [t("stored_regression_control_1_1"), t("stored_regression_control_1_2"), t("stored_regression_control_1_3")],
+          [t("stored_regression_control_2_1"), t("stored_regression_control_2_2"), t("stored_regression_control_2_3")],
+          [t("stored_regression_control_3_1"), t("stored_regression_control_3_2"), t("stored_regression_control_3_3")],
+          [t("stored_regression_control_4_1"), t("stored_regression_control_4_2"), t("stored_regression_control_4_3")],
+          [t("stored_regression_control_5_1"), t("stored_regression_control_5_2"), t("stored_regression_control_5_3")],
+          [t("stored_regression_control_6_1"), t("stored_regression_control_6_2"), t("stored_regression_control_6_3")],
+          [t("stored_regression_control_7_1"), t("stored_regression_control_7_2"), t("stored_regression_control_7_3")]
+        ] }],
+      },
+
     ] satisfies ManualPage[],
   };
 }

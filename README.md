@@ -18,6 +18,7 @@ Bring AI into stored-program coding, trace-based debugging, SQL creation, SQL tu
 - **Transaction control and safer production workflows.** Execute DML in supported windows, inspect the pending transaction state, then explicitly Commit or Rollback from the main window. Read-only connection mode, connection identity colors and operation reviews help reduce accidental changes.
 - Browse and manage database objects, build and execute SQL, inspect execution plans, edit results, and import or export data.
 - Work in English or Japanese, with configurable themes and date formats.
+- **Local data validation.** Mask exported query-result copies, compare SQL results with duplicate-aware or key-based differences, and save/re-run stored-program regression cases with expected outputs and verification SELECTs. [Usage and limits](docs/DATA_VALIDATION.md).
 
 ## AI-native across the database workflow
 

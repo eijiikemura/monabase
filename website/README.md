@@ -153,7 +153,7 @@ selection, saving, scope and the separate website theme, with all three styles
 captured in English and Japanese. Sections may include an optional `image` to
 place a screenshot next to its explanation.
 
-The content model currently contains **39 guide/support pages in each language**,
+The content model currently contains **42 guide/support pages in each language**,
 including transaction control, Contact & Support and Privacy Policy. Oracle-only
 and PostgreSQL-only screens carry their supported database badge. Screenshot-backed
 guides use separate English/Japanese images captured in the matching app language.
@@ -264,3 +264,7 @@ The landing pages and every guide include localized titles, descriptions and soc
 `node scripts/create-social-images.mjs` is an authoring tool using the existing sharp installation, the official icon and real localized SQL screenshots. Run it with Japanese fonts available and inspect the output. Commit the PNGs; ordinary builds do not regenerate them or require those fonts. Social metadata tests and the production-site verifier cover both locales and all 80 public pages.
 
 When changing an image, use a new versioned filename and update its generator, `socialImagePath` and verification references. Social networks may cache earlier cards; successful HTTP checks do not guarantee that a particular network has refreshed its preview.
+
+## Data validation guides
+
+The localized landing cards and Source & workflows group link to `guides/data-masking/`, `guides/result-comparison/` and `guides/stored-regression/`. Keep their three-database badges, control/settings tables, localized real UI captures and related links from SQL, stored programs, packages and data generation. Document the actual boundaries: masking exports a copy as JSON, comparison covers fetched rows, and regression suites run explicitly without automatic Commit/Rollback. The six new captures were made on 2026-11-26 with an isolated production renderer, fictional data and simulated IPC; they are not evidence of live database execution or AI responses.

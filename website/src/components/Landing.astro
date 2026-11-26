@@ -8,7 +8,7 @@ import { translator, type Locale } from '../i18n';
 import { SITE, sitePath } from '../config';
 interface Props { locale: Locale; }
 const { locale } = Astro.props;
-const { ui, pages, groups } = siteContent(translator(locale));
+const { ui, pages, groups, validationFeatures } = siteContent(translator(locale));
 const features = [
   { number: '01', slug: 'git', title: ui.git_feature_title, body: ui.git_feature_body, image: 'git-source-history-feature' },
   { number: '02', slug: 'ai', title: ui.ai_feature_title, body: ui.ai_feature_body, image: 'ai-coding-assistant' },
@@ -51,6 +51,10 @@ const protections = [
   <section class="evidence-section" aria-labelledby="trace-title">
     <div class="feature-showcase"><div><p class="eyebrow">{ui.trace_label}</p><h2 id="trace-title">{ui.trace_feature_title}</h2><p>{ui.trace_session_body}</p><h3 class="detail-heading">{ui.trace_ai_title}</h3><p>{ui.trace_ai_body}</p><a href={sitePath(locale, 'guides/trace')}>{ui.learn_more} <span aria-hidden="true">→</span></a></div><Screenshot locale={locale} name="trace-debugging" alt={ui.trace_feature_title} /></div>
     <div class="feature-showcase reverse"><div><p class="eyebrow">{ui.er_label}</p><h2>{ui.er_feature_title}</h2><p>{ui.er_feature_body}</p><a href={sitePath(locale, 'guides/er-diagrams')}>{ui.learn_more} <span aria-hidden="true">→</span></a></div><Screenshot locale={locale} name="er-diagram" alt={ui.er_feature_title} /></div>
+  </section>
+  <section class="feature-section" aria-labelledby="validation-title">
+    <h2 id="validation-title">{ui.validation_title}</h2><p class="section-intro">{ui.validation_intro}</p>
+    <div class="feature-grid">{validationFeatures.map(feature => <article class="feature-card"><h3>{feature.title}</h3><DbBadges databases={['oracle', 'postgresql', 'mysql']} label={ui.db_support} /><p>{feature.body}</p><a href={sitePath(locale, `guides/${feature.slug}`)}>{ui.learn_more}<span aria-hidden="true"> →</span></a></article>)}</div>
   </section>
   <section class="safety-section" aria-labelledby="safety-title">
     <p class="eyebrow">{ui.safety_label}</p><h2 id="safety-title">{ui.safety_title}</h2><p class="section-intro">{ui.safety_intro}</p>

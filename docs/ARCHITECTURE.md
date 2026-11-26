@@ -19,6 +19,7 @@ flowchart LR
 | `src/features/oracle/`, `src/features/postgresql/` | Database-specific workspaces and object editors |
 | `src/features/data-generator/` | Shared generation rules, validation, exact helpers, preview and batch workflow; database adapters retain row-generation differences |
 | `src/features/sql/`, `table/`, `stored/`, `er/`, `git/`, `ai/`, `objects/`, `data-grid/`, `dba/` | Shared feature behavior |
+| `src/features/quality/` | Local result snapshots, exact comparison, HMAC masking and explicit stored regression suites; shared workspace menu and SQL-result actions |
 | `src/components/` | Reusable dialogs, inputs, and visual components |
 | `src/shared/api/` | Renderer-owned desktop client and loading/transaction notifications |
 | `src/shared/types/`, `utils/`, `hooks/` | Shared types, small functions, and hooks |
@@ -2113,3 +2114,9 @@ statement, including a saved body without a trailing semicolon. This is separate
 from compound statements: assignment still resolves only declared locals or
 parameters, and external user variables/session changes remain refused. The
 procedure niche suite checks this path against native INOUT execution.
+
+## Data validation tools
+
+The three workspaces share `QualityToolsMenu`. SQL results are explicitly captured from raw column values, excluding grid-only fields. A renderer-memory session retains the captured result and the last successful `execute-stored` request/expectation; disconnect/reconnect clears them. `createDesktopClient` publishes a completion observer only for its current request generation. Files are imported by user selection with bounded JSON validation and exported through the existing OS-dialog write-token path.
+
+Masking transforms a copy, never the DB. Comparison preserves duplicates and decimal text. Regression cases reuse `execute-stored`; optional `execute-regression-check` validates a read-only SQL shape in the privileged handler and delegates to the existing main-session SQL path. No automatic transaction control or fixture restore is inserted. User-defined SELECT functions and stored programs can still have effects. See [Data validation](DATA_VALIDATION.md) for formats, operation and limits.

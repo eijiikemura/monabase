@@ -39,6 +39,7 @@ async function runDevelopmentWorkspace() {
     await run('progress.cjs');
     await run('ipc-security.cjs');
     await run('settings.cjs');
+    await run('quality.cjs');
     await run('sidebar.cjs');
     await run('mysql.cjs');
   }

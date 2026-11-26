@@ -168,7 +168,7 @@ function sqlBottomFixture() {
     './useSqlWindowBottom': { useSqlWindowBottom: props => ({ resolvedDbType: 'oracle', isTransposed: false, setIsTransposed() {}, displayRows: props.rows, displayColumns: props.columns, historyColumns: [], parsedExplain: { tree: [], predicates: [], headerText: [] }, handleExportForAI() {} }) },
     '../ai/AiRequestButton': 'AI', '@/components/data/ExportDialog': 'Export'
   };
-  for (const icon of ['DeleteOutline', 'SwapHoriz', 'ExpandMore', 'ChevronRight']) deps['@mui/icons-material/' + icon] = icon;
+  for (const icon of ['DeleteOutline', 'SwapHoriz', 'ExpandMore', 'ChevronRight', 'CompareArrows', 'ShieldOutlined']) deps['@mui/icons-material/' + icon] = icon;
   const Bottom = load('src/features/sql/SqlWindowBottom.tsx', deps, { React: react,
     window: { dispatchEvent: event => events.push(event) }, CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } } }).default;
   const entry = { id: 'history-1', sql: 'SELECT history_value', executeTime: 'now', duration: 5, rowCount: 1 };

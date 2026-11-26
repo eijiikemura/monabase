@@ -4,6 +4,13 @@
 import enGitFeature from '../../../docs/screenshots/git-source-history.png';
 import jaGitFeature from '../../../docs/screenshots/git-source-history-ja.png';
 
+import enDataMasking from '../../../docs/screenshots/manual/en/data-masking.png';
+import enResultComparison from '../../../docs/screenshots/manual/en/result-comparison.png';
+import enStoredRegression from '../../../docs/screenshots/manual/en/stored-regression.png';
+import jaDataMasking from '../../../docs/screenshots/manual/ja/data-masking.png';
+import jaResultComparison from '../../../docs/screenshots/manual/ja/result-comparison.png';
+import jaStoredRegression from '../../../docs/screenshots/manual/ja/stored-regression.png';
+
 import type { ImageMetadata } from 'astro';
 import type { Locale } from '../i18n/index';
 
@@ -81,6 +88,10 @@ import jaWorkspace from '../../../docs/screenshots/manual/ja/workspace.png';
 
 export const screenshots: Record<Locale, Record<string, ImageMetadata>> = {
   en: {
+    'data-masking': enDataMasking,
+    'result-comparison': enResultComparison,
+    'stored-regression': enStoredRegression,
+
     'admin-directories': enAdminDirectories,
     'admin-locks': enAdminLocks,
     'admin-pdb': enAdminPdb,
@@ -119,6 +130,10 @@ export const screenshots: Record<Locale, Record<string, ImageMetadata>> = {
     'workspace': enWorkspace,
   },
   ja: {
+    'data-masking': jaDataMasking,
+    'result-comparison': jaResultComparison,
+    'stored-regression': jaStoredRegression,
+
     'admin-directories': jaAdminDirectories,
     'admin-locks': jaAdminLocks,
     'admin-pdb': jaAdminPdb,

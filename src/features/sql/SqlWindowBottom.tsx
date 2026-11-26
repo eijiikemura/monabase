@@ -1,6 +1,9 @@
 // Copyright 2026 eiji ikemura
 // SPDX-License-Identifier: Apache-2.0
 
+import { publishQualityResult } from '@/features/quality/qualitySession';
+import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
+import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import { useCellValueInspector, cellMenuTrigger, type CellSnapshot } from '@/components/data/CellValueInspector';
 import { GridViewport } from '@/features/data-grid/GridViewport';
 import { qualifiedObjectName } from '@/shared/utils/objectIdentity';
@@ -225,6 +228,7 @@ const SqlWindowBottomComponent = (props: SqlWindowBottomProps) => {
                   <SwapHorizIcon />
                 </IconButton>
               </Tooltip>
+              {[{ tab: 1, label: 'quality_comparison', icon: <CompareArrowsIcon /> }, { tab: 0, label: 'quality_masking', icon: <ShieldOutlinedIcon /> }].map(action => <Tooltip key={action.tab} title={t(action.label)}><span><IconButton size="small" aria-label={t(action.label)} disabled={!props.columns.length} onClick={() => { try { publishQualityResult(props.columns.map(column => column.field), props.rows, action.tab); } catch (failure) { window.alert(t(failure instanceof Error ? failure.message : 'quality_invalid_document')); } }}>{action.icon}</IconButton></span></Tooltip>)}
               <ExportDialog columns={displayColumns} rows={displayRows} defaultFileName="sql_export" iconType="download" />
             </>
           )}

@@ -2463,3 +2463,11 @@ The suite has 32 scenarios plus its parent (33 test counts), uses only run-owned
 MBT objects and temporary traces, and makes no paid AI call or privilege/server
 configuration change. Both baseline and traced writes leave the original owned
 table's sum unchanged after rollback.
+
+## Data validation tools
+
+See [DATA_VALIDATION.md](DATA_VALIDATION.md) for the user workflow, formats and constraints. `tests/quality-tools.test.cjs` tests raw snapshots, duplicate-aware and key-based result comparisons, decimal fidelity, keyed pseudonym consistency, document limits, suite assertions, stop/no-retry behavior and privileged verification-query checks. `tests/e2e/quality.cjs` operates the production UI in English and Japanese in Oracle/PostgreSQL/MySQL workspaces with simulated IPC; it is included in `test:ui`. No paid AI is used.
+
+`tests/integration/quality.test.cjs` and `tests/mysql/quality.test.cjs` share `tests/helpers/qualityDatabase.cjs`. They create random dedicated-schema MBT definitions, assert loop outcomes independently, detect deliberate wrong expectations, verify OUT parameters and main-session verification SELECTs against pending DML, check observer isolation and explicitly roll back. Both connections release transactions before DROP to avoid MySQL metadata-lock waits. Compound MySQL routine setup/cleanup uses the native connection only for the test-owned definitions; product execution still uses its normal stored API.
+
+A fully separate disposable MySQL alternative is `MONABASE_MYSQL_DATABASE_DISPOSABLE=1 node --test tests/disposable/quality-mysql.test.cjs`. It uses the existing isolated-container helper and leaves the usual MySQL configuration untouched. Required function-creation capabilities must be available; a privilege/setup failure is not a skipped or successful test.

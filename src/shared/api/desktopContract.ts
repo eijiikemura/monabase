@@ -315,6 +315,7 @@ export interface DesktopRequests {
   'get-postgres-trigger': Request<[request: PostgresTriggerIdentity], Response<{ trigger: PostgresTriggerMetadata }>>;
   'save-postgres-trigger': Request<[request: PostgresTriggerSave], Response<TransactionState>>;
   'execute-ddl-batch': Request<[statements: string[]], Response<TransactionState>>;
+  'execute-regression-check': Request<SqlArguments, SqlResponse>;
   'execute-sql': Request<SqlArguments, SqlResponse>;
   'execute-sql-bg': Request<[sql: string, binds?: Record<string, unknown>, schema?: string | null, container?: string | null], SqlResponse>;
   'explain-sql': Request<SqlArguments, SqlResponse>;

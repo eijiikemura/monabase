@@ -18,7 +18,7 @@ const { TraceDatabase: PgTraceDatabase } = require('../postgres/traceDb');
 
 function registerDatabaseHandlers({ getValidatedSettings, ipcMain, state, t, createSshHostVerifier }) {
   const basicMysqlChannels = new Set(['connect-db', 'disconnect-db', 'get-db-info', 'get-schemas',
-    'execute-trace', 'get-trace-data', 'get-trace-for-ai', 'delete-trace-db', 'review-mysql-definition-import', 'execute-mysql-definition-import', 'review-mysql-database', 'manage-mysql-database', 'get-mysql-database-options', 'list-mysql-databases', 'get-mysql-database-detail', 'list-mysql-tablespaces', 'get-mysql-tablespace-detail', 'list-mysql-locks', 'get-mysql-lock-detail', 'review-mysql-lock', 'manage-mysql-lock', 'list-mysql-sessions', 'get-mysql-session-detail', 'review-mysql-session', 'manage-mysql-session', 'get-mysql-object-privileges', 'review-mysql-object-privileges', 'execute-mysql-object-privileges', 'list-mysql-accounts', 'get-mysql-account', 'review-mysql-account', 'execute-mysql-account', 'execute-sql', 'execute-sql-bg', 'explain-sql', 'begin-sql-batch', 'end-sql-batch', 'commit-db', 'rollback-db', 'cancel-execution', 'get-ai-database-context', 'get-mysql-trace-inputs', 'get-mysql-trigger-trace-inputs', 'get-mysql-trigger', 'mutate-mysql-trigger', 'get-mysql-routine-dependencies', 'get-mysql-procedure', 'mutate-mysql-procedure', 'get-mysql-function', 'mutate-mysql-function', 'execute-stored']);
+    'execute-regression-check', 'execute-trace', 'get-trace-data', 'get-trace-for-ai', 'delete-trace-db', 'review-mysql-definition-import', 'execute-mysql-definition-import', 'review-mysql-database', 'manage-mysql-database', 'get-mysql-database-options', 'list-mysql-databases', 'get-mysql-database-detail', 'list-mysql-tablespaces', 'get-mysql-tablespace-detail', 'list-mysql-locks', 'get-mysql-lock-detail', 'review-mysql-lock', 'manage-mysql-lock', 'list-mysql-sessions', 'get-mysql-session-detail', 'review-mysql-session', 'manage-mysql-session', 'get-mysql-object-privileges', 'review-mysql-object-privileges', 'execute-mysql-object-privileges', 'list-mysql-accounts', 'get-mysql-account', 'review-mysql-account', 'execute-mysql-account', 'execute-sql', 'execute-sql-bg', 'explain-sql', 'begin-sql-batch', 'end-sql-batch', 'commit-db', 'rollback-db', 'cancel-execution', 'get-ai-database-context', 'get-mysql-trace-inputs', 'get-mysql-trigger-trace-inputs', 'get-mysql-trigger', 'mutate-mysql-trigger', 'get-mysql-routine-dependencies', 'get-mysql-procedure', 'mutate-mysql-procedure', 'get-mysql-function', 'mutate-mysql-function', 'execute-stored']);
   const originalIpc = ipcMain;
   ipcMain = { handle(channel, handler) {
     originalIpc.handle(channel, (...args) => {
@@ -234,7 +234,7 @@ function registerDatabaseHandlers({ getValidatedSettings, ipcMain, state, t, cre
   }
 
   // Always execute SQL on the main connection.
-  ipcMain.handle('execute-sql', async (event, sqlText, binds = {}, schema = null, batchId = null) => {
+  const executeMainSql = async (event, sqlText, binds = {}, schema = null, batchId = null) => {
     const dbClient = state.client;
     let batch;
     try {
@@ -256,7 +256,16 @@ function registerDatabaseHandlers({ getValidatedSettings, ipcMain, state, t, cre
       const position = Number(err.position);
       return { success: false, error: err.message, ...(state.type==='mysql'&&Number.isSafeInteger(err.mysqlErrorLine)&&err.mysqlErrorLine>0?{mysqlErrorLine:err.mysqlErrorLine}:{}), ...(Number.isSafeInteger(position) && position > 0 ? { errorPosition: position } : {}), ...(typeof err.where === 'string' ? { errorContext: err.where } : {}), ...getMainTransactionStateResponse(dbClient), ...(batch?.cancelled ? { cancelled: true } : {}) };
     } finally { if (batch) batch.active = false; }
+  };
+  ipcMain.handle('execute-sql', executeMainSql);
+  ipcMain.handle('execute-regression-check', async (event, sql, binds, schema) => {
+    const dialect = state.type === 'postgres' ? 'postgresql' : state.type;
+    const { isReadOnlySql } = require('../services/readOnlySql');
+    if (typeof sql !== 'string' || sql.length > 100000 || !isReadOnlySql(sql.trim().replace(/;\s*$/, ''), dialect)) return { success: false, error: 'quality_check_select_only' };
+    return executeMainSql(event, sql, binds, schema);
   });
+
+
 
   ipcMain.handle('execute-sql-bg', async (event, sqlText, binds = {}, schema = null, container = null) => {
     try {

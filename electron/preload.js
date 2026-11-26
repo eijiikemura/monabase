@@ -116,6 +116,7 @@ const invokeChannels = new Set([
   "mutate-oracle-directory",
   "connect-db",
   "execute-sql",
+  "execute-regression-check",
   "execute-ddl-batch",
   "get-oracle-trigger",
   "save-oracle-trigger",

@@ -1,6 +1,7 @@
 // Copyright 2026 eiji ikemura
 // SPDX-License-Identifier: Apache-2.0
 
+import QualityToolsMenu from '@/features/quality/QualityToolsMenu';
 import { NotificationHistoryButton } from '@/components/feedback/NotificationHost';
 import { workspaceTabDescription } from '@/components/navigation/workspaceTabDescription';
 import ConnectionBadge from '@/components/ConnectionBadge';
@@ -322,6 +323,7 @@ export default function AppPostgresql({ config, dbInfo, schemas, settings, onDis
             </MenuItem>
           </Menu>
 
+          <QualityToolsMenu config={config} />
           <HelpMenu
             anchorEl={logic.helpMenuAnchorEl}
             onOpen={(event) => logic.setHelpMenuAnchorEl(event.currentTarget)}

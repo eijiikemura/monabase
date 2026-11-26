@@ -9,11 +9,11 @@ export interface DesktopTransport {
 }
 
 const LOADING_CHANNELS = new Set([
-  'execute-sql', 'execute-ddl-batch', 'save-postgres-trigger', 'save-oracle-trigger', 'save-oracle-dblink', 'execute-stored', 'execute-trace', 'commit-db',
+  'execute-regression-check', 'execute-sql', 'execute-ddl-batch', 'save-postgres-trigger', 'save-oracle-trigger', 'save-oracle-dblink', 'execute-stored', 'execute-trace', 'commit-db',
   'rollback-db', 'get-objects', 'get-columns', 'explain-sql', 'mutate-oracle-directory', 'mutate-oracle-object-privileges'
 ]);
 
-export function createDesktopClient(transport: DesktopTransport, onLoading: (loading: boolean) => void) {
+export function createDesktopClient(transport: DesktopTransport, onLoading: (loading: boolean) => void, onResponse?: (channel: string, args: unknown[], response: unknown) => void) {
   const filePermissions = new Map<string, string>();
   let loadingCount = 0;
   let generation = 0;
@@ -57,6 +57,7 @@ export function createDesktopClient(transport: DesktopTransport, onLoading: (loa
         typeof response === 'object' && 'hasUncommittedTx' in response && typeof response.hasUncommittedTx === 'boolean') {
         for (const subscriber of subscribers) subscriber(response.hasUncommittedTx);
       }
+      if (requestGeneration === generation) onResponse?.(channel, cleanArgs, response);
       return response;
     } finally {
       finishLoading?.();

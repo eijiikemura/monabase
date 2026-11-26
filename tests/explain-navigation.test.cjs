@@ -25,7 +25,7 @@ const dependencies = {
   '@mui/x-data-grid': {}, '@mui/material': { Box: 'Box', Typography: 'Typography', IconButton: 'IconButton', Collapse: 'Collapse' },
   '../ai/AiRequestButton': {}, '@/components/data/ExportDialog': {}
 };
-for (const icon of ['DeleteOutline', 'SwapHoriz', 'ExpandMore', 'ChevronRight']) dependencies[`@mui/icons-material/${icon}`] = {};
+for (const icon of ['DeleteOutline', 'SwapHoriz', 'ExpandMore', 'ChevronRight', 'CompareArrows', 'ShieldOutlined']) dependencies[`@mui/icons-material/${icon}`] = {};
 const { ExplainTreeNode } = loadTypeScript('src/features/sql/SqlWindowBottom.tsx', dependencies, {
   window: { dispatchEvent: event => events.push(event) },
   CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } }

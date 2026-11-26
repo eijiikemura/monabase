@@ -22,7 +22,7 @@ test('All authored website keys have nonempty English and Japanese translations'
 });
 test('Both locales expose the same unique routes, database capabilities and guide structure', () => {
   const en = siteContent(translator('en')), ja = siteContent(translator('ja'));
-  assert.equal(en.pages.length, 39);
+  assert.equal(en.pages.length, 42);
   assert.equal(new Set(en.pages.map(page => page.slug)).size, en.pages.length);
   assert.deepEqual(en.pages.map(page => [page.slug, page.databases]), ja.pages.map(page => [page.slug, page.databases]));
   for (const [locale, content] of [['en', en], ['ja', ja]]) for (const page of content.pages) {
@@ -69,7 +69,7 @@ test('Website dependencies stay independent of the desktop app and use their own
 test('Every guide has distinct English and Japanese captures rather than a reused English image', () => {
   const pages = siteContent(translator('en')).pages;
   const images = new Set(pages.flatMap(page => [...(page.image ? [page.image] : []), ...(page.sections ?? []).flatMap(section => section.image ? [section.image] : [])]));
-  assert.equal(images.size, 35);
+  assert.equal(images.size, 38);
   for (const image of images) {
     const screenshot = locale => fs.readFileSync(path.join(root, '../docs/screenshots/manual', locale, `${image}.png`));
     assert.notDeepEqual(screenshot('en'), screenshot('ja'), `Both locales reuse the same screenshot: ${image}`);
@@ -104,11 +104,11 @@ test('All manual screenshots use explicit asset imports so new files are availab
 
 
 test('MySQL badges follow actual capabilities and include bilingual operating differences',()=>{
-  const supported=['getting-started','database-support','connection','transaction-control','workspace','styles','settings','sql','query-builder','tables','views','indexes','check-constraints','stored-programs','triggers','git','ai','trace','er-diagrams','data-generator','cross-tab','admin-sessions','admin-locks','admin-privileges','admin-users','admin-tablespaces','admin-schemas'];
+  const supported=['data-masking','result-comparison','stored-regression','getting-started','database-support','connection','transaction-control','workspace','styles','settings','sql','query-builder','tables','views','indexes','check-constraints','stored-programs','triggers','git','ai','trace','er-diagrams','data-generator','cross-tab','admin-sessions','admin-locks','admin-privileges','admin-users','admin-tablespaces','admin-schemas'];
   for(const locale of ['en','ja']){
     const pages=siteContent(translator(locale)).pages;
     assert.deepEqual(pages.filter(p=>p.databases.includes('mysql')).map(p=>p.slug).sort(),[...supported].sort());
-    for(const page of pages){assert.equal(Boolean(page.mysql),supported.includes(page.slug) && !['getting-started','database-support','settings','styles','workspace','query-builder','check-constraints','git','ai','er-diagrams','data-generator','cross-tab'].includes(page.slug),page.slug);if(page.mysql){assert.ok(page.mysql.intro.trim());assert.ok(!Object.hasOwn(page.mysql, 'tables'), 'No separate MySQL operation table');}}
+    for(const page of pages){assert.equal(Boolean(page.mysql),supported.includes(page.slug) && !['data-masking','result-comparison','stored-regression','getting-started','database-support','settings','styles','workspace','query-builder','check-constraints','git','ai','er-diagrams','data-generator','cross-tab'].includes(page.slug),page.slug);if(page.mysql){assert.ok(page.mysql.intro.trim());assert.ok(!Object.hasOwn(page.mysql, 'tables'), 'No separate MySQL operation table');}}
     for(const slug of ['types','sequences','packages','materialized-views','materialized-view-logs','synonyms','database-links','admin-pdb','admin-directories'])assert.ok(!pages.find(p=>p.slug===slug).databases.includes('mysql'),slug);
     assert.ok(pages.find(p=>p.slug==='trace').mysql.intro);
     assert.ok(pages.find(p=>p.slug==='admin-tablespaces').mysql.intro);
@@ -187,5 +187,35 @@ test('Video tutorials use the official channel and localized guide without imply
     assert.ok(!page.intro.includes('{{youtubeUrl}}'));
     assert.equal(page.tables[0].rows.length, 5);
     assert.ok(content.ui.videos_title && content.ui.videos_body && content.ui.videos_channel && content.ui.videos_guide);
+  }
+});
+
+test('Data validation guides and landing links describe implemented scope in both languages', () => {
+  const slugs = ['data-masking', 'result-comparison', 'stored-regression'];
+  const landing = fs.readFileSync(path.join(root, 'src/components/Landing.astro'), 'utf8');
+  assert.match(landing, /validationFeatures\.map/);
+  assert.match(landing, /aria-labelledby="validation-title"/);
+  for (const locale of ['en', 'ja']) {
+    const content = siteContent(translator(locale));
+    assert.deepEqual(content.validationFeatures.map(item => item.slug), slugs);
+    for (const slug of slugs) {
+      const page = content.pages.find(item => item.slug === slug);
+      assert.equal(page.group, 'workflow');
+      assert.deepEqual(page.databases, ['oracle', 'postgresql', 'mysql']);
+      assert.equal(page.image, slug);
+      assert.ok(page.tables[0].rows.length >= 6);
+      assert.ok(page.sections.length >= 2);
+      assert.ok(page.note.trim());
+    }
+    const masking = content.pages.find(item => item.slug === 'data-masking');
+    assert.match(masking.note, locale === 'ja' ? /元DBは変更されません/ : /database is unchanged/);
+    assert.match(JSON.stringify(masking), /example\.invalid/);
+    assert.match(content.pages.find(item => item.slug === 'result-comparison').intro, locale === 'ja' ? /取得済み/ : /fetched/);
+    const regression = content.pages.find(item => item.slug === 'stored-regression');
+    assert.match(regression.note, /Rollback|rolls back/);
+    assert.match(JSON.stringify(regression), /fingerprint|指紋/);
+    assert.match(content.pages.find(item => item.slug === 'sql').intro, /\.\.\/result-comparison\//);
+    for (const slug of ['stored-programs', 'packages']) assert.match(content.pages.find(item => item.slug === slug).intro, /\.\.\/stored-regression\//);
+    assert.match(content.pages.find(item => item.slug === 'data-generator').intro, /\.\.\/data-masking\//);
   }
 });

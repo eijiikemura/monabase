@@ -1,6 +1,7 @@
 // Copyright 2026 eiji ikemura
 // SPDX-License-Identifier: Apache-2.0
 
+import QualityToolsMenu from '@/features/quality/QualityToolsMenu';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, AppBar, Box, Button, Chip, Divider, IconButton, Menu, MenuItem, Tab, Tabs, Toolbar, Tooltip, Typography } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -284,6 +285,7 @@ export default function AppMysql({ config, settings, dbInfo, schemas:initialSche
         <Button color="inherit" disabled={busy || gitBusy} onClick={event => setMenu({ name: 'git', anchor: event.currentTarget })}>GIT</Button>
         <AiMenu onOpenSettings={() => aiSettings.setAiSettingsDialogOpen(true)} outputDateFormat={settings.outputDateFormat} />
         <Button color="inherit" disabled={busy} onClick={event => setMenu({ name: 'settings', anchor: event.currentTarget })} sx={{ textTransform: 'none' }}>{t('settings')}</Button>
+        <QualityToolsMenu config={config} disabled={busy} />
         <HelpMenu anchorEl={help} onOpen={event => setHelp(event.currentTarget)} onClose={() => setHelp(null)} onAbout={() => setAbout(true)} />
         <Box sx={{ flexGrow: 1, minWidth: 16 }} />
         {unknown && <Chip size="small" color="error" label={t('mysql_state_unknown')} />}

@@ -125,9 +125,9 @@ Files in `docs/` are readable directly on GitHub; the README is the entry point 
 
 ## Localized manual screenshots
 
-The website now uses **35 distinct screenshots per language (70 PNG files)** in
+The website now uses **38 distinct screenshots per language (76 PNG files)** in
 [`screenshots/manual/en/`](screenshots/manual/en/) and
-[`screenshots/manual/ja/`](screenshots/manual/ja/). All 34 guides have an image;
+[`screenshots/manual/ja/`](screenshots/manual/ja/). Screen guides include localized images;
 Getting started and Connection share the login screenshot. The App styles guide
 adds Mona, Simple and Dark screenshots of the same SQL workspace in both languages.
 The additional style captures use isolated settings at
@@ -136,7 +136,7 @@ The additional style captures use isolated settings at
 also follow the website language. Original images used by the README above are
 preserved.
 
-These manual images were captured on 2026-10-30 from the actual production
+The original manual images were captured on 2026-10-30 from the actual production
 renderer, using fictional data and simulated IPC responses adapted from
 `tests/e2e/sidebar.cjs`. This makes management screens available without changing
 a live server. The AI response is a **prepared demo response**, not a real model
@@ -202,3 +202,7 @@ these local commands.
 | `styles` — Mona | [style-mona.png](screenshots/manual/en/style-mona.png) | [style-mona.png](screenshots/manual/ja/style-mona.png) |
 | `styles` — Simple | [style-simple.png](screenshots/manual/en/style-simple.png) | [style-simple.png](screenshots/manual/ja/style-simple.png) |
 | `styles` — Dark | [style-dark.png](screenshots/manual/en/style-dark.png) | [style-dark.png](screenshots/manual/ja/style-dark.png) |
+
+### Data validation captures (2026-11-26)
+
+The three shared validation tools add `data-masking.png`, `result-comparison.png` and `stored-regression.png` in both `manual/en/` and `manual/ja/`. These are actual production-renderer screens using the quality UI fixture with fictional values and simulated IPC. Oracle is the pictured workspace; all three database badges describe capability, not separate DB screenshots. English/Japanese settings are supplied before loading each screen. No live DB or AI service is contacted, and personal application settings are untouched. Captures are 1600 pixels wide. The regression case JSON is entered compactly through the normal editor so that the successful outcome and execution controls fit in the capture.
