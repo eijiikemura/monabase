@@ -20,7 +20,7 @@ export default function QualityToolsMenu({ config, disabled = false }: { config:
     <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}>
       {['quality_masking','quality_comparison','quality_regression'].map((key, index) => <MenuItem key={key} onClick={() => { setAnchor(null); openQualityTools(index); }}>{t(key)}</MenuItem>)}
     </Menu>
-    <Dialog open={session.open} keepMounted PaperProps={{ role: session.open ? 'dialog' : 'presentation' }} fullWidth maxWidth="lg" onClose={(_event, reason) => { if (!running && reason !== 'backdropClick') closeQualityTools(); }}>
+    <Dialog open={session.open} keepMounted sx={{ display: session.open ? undefined : 'none' }} PaperProps={{ role: session.open ? 'dialog' : 'presentation' }} fullWidth maxWidth="lg" onClose={(_event, reason) => { if (!running && reason !== 'backdropClick') closeQualityTools(); }}>
       <DialogTitle>{t('quality_tools')} — {config.name || config.database || config.user} ({dbType})</DialogTitle>
       <DialogContent dividers>
         <Alert severity="info" sx={{ mb: 1 }}>{t('quality_local_only')}</Alert>

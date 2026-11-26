@@ -47,6 +47,7 @@ app.whenReady().then(async()=>{
   await click('[role=dialog] button',words.quality_run_suite);await wait(`document.querySelector('[role=dialog]').textContent.includes(${JSON.stringify(words.quality_passed)})`);assert.equal(calls,before+1);assert.ok(checkCalls>0);
   await click('[role=dialog] button',words.quality_add_case);await wait("JSON.parse(document.querySelector('[role=dialog] textarea').value).cases.length===2");
   await click('[role=dialog] button',words.close);await wait("!document.querySelector('[role=dialog]')");
+  assert.equal(await js("[...document.querySelectorAll('.MuiDialog-root button')].some(button=>button.getBoundingClientRect().width>0)"),false,'A closed validation dialog must not expose layout-visible controls.');
   await js("window.dispatchEvent(new CustomEvent('open-sql-tab',{detail:{initialSql:\"SELECT 'demo@example.invalid' AS email\"}}));true");
   await wait("[...document.querySelectorAll('.cm-content')].some(e=>e.getBoundingClientRect().width>0)");
   if(db==='postgresql'){
@@ -61,4 +62,4 @@ app.whenReady().then(async()=>{
   console.log('Quality UI: masking, comparison, guarded suite, captured execution:',db,lang);
  }
  assert.deepEqual(errors,[]);
-}).catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>{clearTimeout(timer);win?.destroy();fs.rmSync(temporary,{recursive:true,force:true});app.quit();});
+}).catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>{clearTimeout(timer);win?.destroy();fs.rmSync(temporary,{recursive:true,force:true});app.exit(process.exitCode||0);});
